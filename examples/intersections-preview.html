@@ -109,13 +109,16 @@ try{
   orbit.minDistance=3;orbit.maxDistance=20;
   const render=()=>{
     renderer.render(scene,camera);
-    status.textContent=`${report.totalFindings} intersecting/contact candidates · ${report.crossings} crossings · ${report.coplanarOverlaps} coplanar overlaps`;
+    status.textContent=`${report.totalFindings} findings · ${report.crossings} crossings · BVH ${report.broadPhasePairs} AABB candidates`;
     window.__pfxIntersectionStats={
       totalFindings:report.totalFindings,
       crossings:report.crossings,
       coplanarOverlaps:report.coplanarOverlaps,
       uncertainPairs:report.uncertainPairs,
       excludedAdjacentPairs:report.excludedAdjacentPairs,
+      skippedSharedVertexAmbiguities:report.skippedSharedVertexAmbiguities,
+      broadPhase:report.broadPhase,
+      broadPhasePairs:report.broadPhasePairs,
       highlightedTriangles:marked.size,
     };
     document.documentElement.dataset.ready='true';

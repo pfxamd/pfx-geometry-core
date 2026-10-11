@@ -50,3 +50,9 @@ shown beside an isolated reference solid, with diagnostic triangle edges
 highlighted. The scene does **not** portray a calculated intersection
 volume or assert universal collision-free geometry. Browser tests record
 the initial and rotated scenes.
+
+## BVH and adjacency diagnostics (0.7.0)
+
+The triangle-intersection WebGL preview now shows the selected broad phase
+and conservative AABB candidate count. Screenshot tests assert that the BVH
+diagnostic really ran. Geometry and rendering stay separate.

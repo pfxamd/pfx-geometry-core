@@ -50,6 +50,8 @@ test('real WebGL 2 visualizes triangle collision diagnostics and responds to orb
     assert.ok(state.stats?.totalFindings>0);
     assert.ok(state.stats?.crossings+state.stats?.coplanarOverlaps>0);
     assert.ok(state.stats?.highlightedTriangles>0);
+    assert.equal(state.stats?.broadPhase,'bvh');
+    assert.ok(state.stats?.broadPhasePairs>0);
     const canvas=page.locator('canvas');
     await mkdir('artifacts',{recursive:true});
     const before=await canvas.screenshot({path:'artifacts/triangle-intersections-initial.png'});

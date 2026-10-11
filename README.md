@@ -1,6 +1,6 @@
 # PFx Geometry Core
 
-**Status:** alpha `0.6.0` — tested geometry/math foundations, not a general-purpose CAD engine.
+**Status:** alpha `0.7.0` — tested geometry/math foundations, not a general-purpose CAD engine.
 
 A small, deterministic, renderer-independent 3D geometry foundation for building measured and verifiable objects. No AI models, cloud requirements, random geometry generation, or UI framework dependencies.
 
@@ -22,6 +22,7 @@ A small, deterministic, renderer-independent 3D geometry foundation for building
 - Topological surface analysis after configurable coordinate welding: boundaries, orientation conflicts, over-subscribed edges, pinched vertices and connected components.
 - Controlled circular-profile sweeps following open 3D polylines (bounded turning angles, explicit radius and planar end caps).
 - Bounded triangle-pair geometric intersection diagnostics, including crossing, coplanar area overlap, isolated point contact and indeterminate edge-plane cases.
+- A deterministic median-split 3D bounding-volume hierarchy (BVH) for conservative triangle candidate enumeration, cross-checked against sweep-and-prune.
 
 **Not implemented yet:** arbitrary CAD solids, arbitrary-profile/curved-path sweeps, concave/holed extrusions, constraint solver, NURBS, SDF, Boolean operations, physically based material simulation in core, organic modeling, semantic identification of objects. A mathematically valid mesh does not prove it represents an intended real-world object. `validateMesh` is a basic validator, not a manifold/watertightness proof.
 
@@ -223,18 +224,22 @@ console.log(report.totalFindings, report.excludedAdjacentPairs);
 ```
 
 The options are `tolerance` (default `1e-9`, absolute coordinate units),
-`maxTriangles` (default and hard maximum 1500), and `maxFindings` (default
-64, maximum 1000; the counts remain complete when stored findings are
-truncated). Meshes exceeding the budget fail explicitly, not by silently
+\`maxTriangles\` (default 12000; hard maximum 20000), \`maxCandidatePairs\`
+(default 250000; maximum 2000000), \`broadPhase\` (\`'bvh'\` by default,
+\`'sweep'\` for comparison) and \`maxFindings\` (default 64; maximum
+1000; counts remain complete even when retained findings are truncated). Meshes exceeding the budget fail explicitly, not by silently
 returning a partial "all clear." `assertNoDetectedSelfIntersections` throws
 when a finding is returned.
 
 **Critical limits:**
 
-- Triangle pairs that share a coordinate-identified vertex are excluded
-  when noncoplanar, to avoid false findings on legitimate mesh adjacency.
-  True intersections within such pairs may therefore be missed. The
-  report exposes `excludedAdjacentPairs`.
+- Noncoplanar pairs sharing an entire coordinate-identical edge are skipped
+  as expected adjacency (counted in `excludedAdjacentPairs`).
+- Noncoplanar pairs with only one shared coordinate-identified vertex are
+  checked for interior line-segment crossings. Expected shared point contacts
+  and numerically ambiguous shared-vertex cases are skipped and counted
+  separately in `ignoredSharedVertexContacts` and
+  `skippedSharedVertexAmbiguities`. These are **not certified clear**.
 - Coplanar contacts with **zero positive overlap area** are not reported.
 - Tiny overlap area can fall beneath the configurable numerical tolerance.
 - This is a bounded floating-point diagnostic, **not** a robust exact-predicate
@@ -251,12 +256,42 @@ It shows two overlapping measured solids, a separate reference solid and
 highlighted triangle-pair findings. `npm run test:browser` verifies actual
 WebGL rendering, report consistency and mouse-orbit changes.
 
+## Spatial acceleration and adjacency · 0.7.0
+
+The default \`broadPhase:'bvh'\` organizes triangle axis-aligned bounding
+boxes into a deterministic binary hierarchy. A recursive same-tree pair
+traversal emits each overlapping unordered triangle pair exactly once. It
+avoids enumerating quadratically many pairs for spatially separated geometry;
+**dense overlapping meshes remain potentially quadratic** and fail
+explicitly when \`maxCandidatePairs\` is reached. The older
+\`broadPhase:'sweep'\` method remains available as an independent
+reference for regression parity.
+
+Both broad phases retain the same narrow-phase geometric formulas. The
+saved \`findings\` list contains the smallest lexicographic triangle-index
+pairs regardless of traversal order, so truncation is deterministic and
+repeatable. The report includes \`broadPhasePairs\`, \`testedPairs\`,
+\`excludedAdjacentPairs\`, \`ignoredSharedVertexContacts\`, and
+\`skippedSharedVertexAmbiguities\`.
+
+**Tested examples:** the BVH and sweep modes have matching collision counts
+and retained findings on overlapping solids, triangular fixtures, and
+measured tubes. A 4096-triangle fixture with separated positions generates
+zero candidate pairs. This is evidence of correct candidate pruning for
+those fixtures, **not a measured guarantee about all input distributions**.
+
+**Numerical limits remain:** near-coplanarity, very large world positions,
+finite-precision projection, tangent contacts, and skipped shared-vertex
+ambiguities can hide intersections. For exact geometric predicates, see
+Shewchuk's adaptive arithmetic research and publicly available robust
+orientation implementations; that upgrade has **not** been implemented yet.
+
 ## Next milestone
 
-Improve adjacent-face intersection analysis and numerical predicates, then
-introduce a spatial acceleration structure for meshes larger than the current
-1500-triangle diagnostic limit. Preserve deterministic, renderer-independent
-math and avoid any unsupported claims of guaranteed solid validity.
+Introduce adaptive robust orientation predicates and stronger geometric
+checks for adjacent/near-coplanar triangles. Scale the BVH with profiling
+and bounded-memory performance tests. Preserve renderer independence and
+do not claim intersection-free geometry from a negative floating-point scan.
 
 ## License
 

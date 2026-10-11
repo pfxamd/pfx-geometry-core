@@ -47,3 +47,4 @@ export {
   type IntersectionOptions, type IntersectionKind,
   type TriangleIntersectionFinding, type TriangleIntersectionReport,
 } from './intersections.js';
+export { type BroadPhaseStrategy } from './broadphase.js';

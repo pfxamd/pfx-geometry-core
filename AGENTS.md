@@ -40,8 +40,16 @@ This repository is a deterministic geometry engine, **not** an AI generator and 
 ## Geometric intersection diagnostics
 
 - Never equate `noDetectedIntersections` with a proof of a mesh being free from self-intersection.
-- The triangle-pair analyzer is bounded by a 1500-triangle computational budget and absolute tolerance. It must reject larger inputs rather than returning incomplete results as success.
+- The triangle-pair analyzer is bounded by a 20000-triangle hard limit and explicit candidate-pair budget and absolute tolerance. It must reject larger inputs rather than returning incomplete results as success.
 - Coplanar overlap means **positive-area overlap** above the scale-dependent threshold; ordinary shared edges and vertices are not faults.
-- Report numerical ambiguity conservatively. Noncoplanar pairs sharing a coincident vertex are excluded and counted, not silently certified.
+- Report numerical ambiguity conservatively. Noncoplanar pairs sharing an entire edge are skipped. Shared single vertices are tested for strict crossings; skipped point contact or numerical ambiguity is separately counted, never certified.
 - Regression fixtures must include: crossing triangles, coplanar overlap, boundary-only contact, isolated contact, edge-on-plane ambiguity, clean revolved caps, separated objects, and interpenetrating box shells.
 - Keep broad-phase and exact-predicate improvements separate from Three.js rendering adapters.
+
+## BVH and deterministic diagnostics
+
+- BVH and sweep-and-prune must enumerate the same unordered overlapping AABB pairs; retain both methods for independent parity tests.
+- `maxCandidatePairs` is a hard stop: never report an incomplete scan as no intersections.
+- Retained findings must be lexicographically stable regardless of BVH traversal order.
+- `skippedSharedVertexAmbiguities` explicitly marks pairs the floating-point checker did not establish as collision-free.
+- The accelerated broad phase improves candidate selection, not predicate robustness or the certainty of the result.
