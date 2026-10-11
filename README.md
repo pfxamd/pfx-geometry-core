@@ -224,9 +224,9 @@ console.log(report.totalFindings, report.excludedAdjacentPairs);
 ```
 
 The options are `tolerance` (default `1e-9`, absolute coordinate units),
-\`maxTriangles\` (default 12000; hard maximum 20000), \`maxCandidatePairs\`
-(default 250000; maximum 2000000), \`broadPhase\` (\`'bvh'\` by default,
-\`'sweep'\` for comparison) and \`maxFindings\` (default 64; maximum
+`maxTriangles` (default 12000; hard maximum 20000), `maxCandidatePairs`
+(default 250000; maximum 2000000), `broadPhase` (`'bvh'` by default,
+`'sweep'` for comparison) and `maxFindings` (default 64; maximum
 1000; counts remain complete even when retained findings are truncated). Meshes exceeding the budget fail explicitly, not by silently
 returning a partial "all clear." `assertNoDetectedSelfIntersections` throws
 when a finding is returned.
@@ -258,21 +258,21 @@ WebGL rendering, report consistency and mouse-orbit changes.
 
 ## Spatial acceleration and adjacency · 0.7.0
 
-The default \`broadPhase:'bvh'\` organizes triangle axis-aligned bounding
+The default `broadPhase:'bvh'` organizes triangle axis-aligned bounding
 boxes into a deterministic binary hierarchy. A recursive same-tree pair
 traversal emits each overlapping unordered triangle pair exactly once. It
 avoids enumerating quadratically many pairs for spatially separated geometry;
 **dense overlapping meshes remain potentially quadratic** and fail
-explicitly when \`maxCandidatePairs\` is reached. The older
-\`broadPhase:'sweep'\` method remains available as an independent
+explicitly when `maxCandidatePairs` is reached. The older
+`broadPhase:'sweep'` method remains available as an independent
 reference for regression parity.
 
 Both broad phases retain the same narrow-phase geometric formulas. The
-saved \`findings\` list contains the smallest lexicographic triangle-index
+saved `findings` list contains the smallest lexicographic triangle-index
 pairs regardless of traversal order, so truncation is deterministic and
-repeatable. The report includes \`broadPhasePairs\`, \`testedPairs\`,
-\`excludedAdjacentPairs\`, \`ignoredSharedVertexContacts\`, and
-\`skippedSharedVertexAmbiguities\`.
+repeatable. The report includes `broadPhasePairs`, `testedPairs`,
+`excludedAdjacentPairs`, `ignoredSharedVertexContacts`, and
+`skippedSharedVertexAmbiguities`.
 
 **Tested examples:** the BVH and sweep modes have matching collision counts
 and retained findings on overlapping solids, triangular fixtures, and
