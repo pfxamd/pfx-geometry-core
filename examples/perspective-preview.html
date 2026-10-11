@@ -21,7 +21,8 @@
     <canvas width="1000" height="600" aria-label="Measured 2 × 1 × 0.5 box in perspective"></canvas>
     <footer><span>Box: 2 × 1 × 0.5 m</span><span>Camera: (3, 2, 5) · FOV 60°</span></footer>
   </main>
-  <script type="module">
+  <script type="importmap">{"imports":{"robust-predicates":"../node_modules/robust-predicates/index.js"}}</script>
+<script type="module">
     import { createBox, boundsOfMesh, perspectiveCamera, projectPoint, vec3 } from '../dist/index.js';
     const box = createBox(2, 1, 0.5);
     const bounds = boundsOfMesh(box);

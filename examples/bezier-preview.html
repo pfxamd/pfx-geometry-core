@@ -21,6 +21,7 @@
 <canvas width="1120" height="680" aria-label="Deterministic 3D Bézier surface with control points"></canvas>
 <footer><span>4 × 4 control grid · analytic normals · 32 × 24 sampled mesh</span><span>No AI · no textures</span></footer>
 </main>
+<script type="importmap">{"imports":{"robust-predicates":"../node_modules/robust-predicates/index.js"}}</script>
 <script type="module">
   import {vec3,createBezierPatchMesh,sampleCubicBezier3,perspectiveCamera,projectPoint} from '../dist/index.js';
   const V=vec3,canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d');
