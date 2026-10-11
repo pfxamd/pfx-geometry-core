@@ -73,6 +73,7 @@ test('absolute welding tolerance explicitly determines whether a seam is conside
   const loose=analyzeMeshTopology(slightlyOpen,{weldTolerance:.001});
   assert.equal(loose.isClosedOriented2Manifold,true);
   fails(()=>analyzeMeshTopology(box,{weldTolerance:0}),'INVALID_DIMENSION');
+  fails(()=>analyzeMeshTopology(box,null),'INVALID_DIMENSION');
   fails(()=>analyzeMeshTopology(box,{weldTolerance:1e-30}),'INVALID_DIMENSION');
 });
 function volume(mesh){

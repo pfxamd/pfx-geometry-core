@@ -38,6 +38,9 @@ class DisjointSet {
  */
 export function analyzeMeshTopology(mesh:TriangleMesh,options:TopologyOptions={}):TopologyReport{
   validateMesh(mesh);
+  if(options===null||typeof options!=='object'){
+    throw new GeometryError('INVALID_DIMENSION','topology options must be an object');
+  }
   const tol=positive(options.weldTolerance??1e-9,'weldTolerance');
   const representatives:number[][]=[];
   const buckets=new Map<string,number[]>();
