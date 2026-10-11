@@ -1,6 +1,6 @@
 # PFx Geometry Core
 
-**Status:** alpha `0.4.0` — tested geometry/math foundations, not a general-purpose CAD engine.
+**Status:** alpha `0.5.0` — tested geometry/math foundations, not a general-purpose CAD engine.
 
 A small, deterministic, renderer-independent 3D geometry foundation for building measured and verifiable objects. No AI models, cloud requirements, random geometry generation, or UI framework dependencies.
 
@@ -19,8 +19,10 @@ A small, deterministic, renderer-independent 3D geometry foundation for building
 - Browser rendering regression check with a real WebGL 2 scene and orbit interaction.
 - Full-turn revolution of positive-radius profiles with optional flat end discs.
 - Straight +Z extrusion of strictly convex CCW polygons, including front/back and side faces.
+- Topological surface analysis after configurable coordinate welding: boundaries, orientation conflicts, over-subscribed edges, pinched vertices and connected components.
+- Controlled circular-profile sweeps following open 3D polylines (bounded turning angles, explicit radius and planar end caps).
 
-**Not implemented yet:** arbitrary CAD solids, arbitrary-path sweeps, concave/holed extrusions, constraint solver, NURBS, SDF, Boolean operations, physically based material simulation in core, organic modeling, semantic identification of objects. A mathematically valid mesh does not prove it represents an intended real-world object. `validateMesh` is a basic validator, not a manifold/watertightness proof.
+**Not implemented yet:** arbitrary CAD solids, arbitrary-profile/curved-path sweeps, concave/holed extrusions, constraint solver, NURBS, SDF, Boolean operations, physically based material simulation in core, organic modeling, semantic identification of objects. A mathematically valid mesh does not prove it represents an intended real-world object. `validateMesh` is a basic validator, not a manifold/watertightness proof.
 
 ## Conventions
 
@@ -153,12 +155,56 @@ root using `python3 -m http.server 8000` and open
 `npm run test:browser` captures evidence for this new example as well as
 the existing Three.js adapter example.
 
+## Topology analysis and polyline tube sweep · 0.5.0
+
+`analyzeMeshTopology(mesh, { weldTolerance?: number })` evaluates triangle
+connectivity after **analysis-only coordinate welding**. The default tolerance
+is an **absolute** `1e-9` in the mesh's own units. It reports boundary edges,
+edges incident to more than two triangles, inconsistent winding, triangles
+collapsed by welding, disconnected vertex fans (pinched vertices), unused
+vertices and connected surface components. `assertClosedOriented2Manifold`
+raises `GeometryError('INVALID_MESH')` for nonconforming topology.
+
+**Important limitation:** `isClosedOriented2Manifold=true` certifies only a
+*combinatorial* property at the chosen weld tolerance. It is **not proof of
+geometric watertightness, absence of self-intersections, suitable volume for
+manufacture, or true real-world dimensions**. Loose tolerances can conceal
+gaps; highly different geometry scales may require explicit scaling. Multiple
+disconnected closed shells may still pass and are reported separately.
+
+`sweepCircularTube(path, { radius, radialSegments, capEnds? })` creates a
+circular tube around an **open polyline of 2 to 64 3D waypoints**. The segment
+tangents and transported cross-sectional frames are computed numerically.
+Each bend must be at most 60 degrees, `radius` must not exceed 45% of the
+shortest segment, and `radialSegments` must be an integer in 6..256.
+End caps are enabled by default, and duplicate render vertices do not affect
+topology analysis. Paths with too-sharp bends or zero-length segments fail
+explicitly.
+
+```js
+import {
+  vec3, sweepCircularTube, assertClosedOriented2Manifold,
+} from '@pfxamd/geometry-core';
+
+const mesh = sweepCircularTube([
+  vec3(0, 0, 0),
+  vec3(0, 1, 0),
+  vec3(0.35, 2, 0.2),
+], { radius: 0.2, radialSegments: 32 });
+const report = assertClosedOriented2Manifold(mesh);
+// The report verifies topology only, not solid self-intersection freedom.
+```
+
+**Diagnostic:** after `npm install && npm run build`, serve the repository
+root using `python3 -m http.server 8000`, then open
+`http://localhost:8000/examples/tube-preview.html`. The browser test
+`npm run test:browser` also records initial/orbited images of the tube.
+
 ## Next milestone
 
-Add topological adjacency/watertightness verification and more controlled
-geometry operations (e.g. sweeps along defined paths), each with mathematical
-tests, explicit domain constraints and visual diagnostics. Never substitute
-random primitives or generated geometry for a specific unsupported object.
+Extend mesh topology into **geometric** collision/intersection checks, add
+stronger numerical conditioning and tested parametric sweep profiles. Keep
+the math engine independent of rendering libraries and AI inference.
 
 ## License
 

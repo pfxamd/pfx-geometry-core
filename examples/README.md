@@ -33,3 +33,11 @@ through the existing Three.js adapter. Orbit using the pointer.
 The browser regression test saves both initial and orbited screenshots.
 The visualization illustrates deterministic geometry construction; its
 materials do not establish any additional geometric correctness.
+
+## Topology and path sweep (0.5.0)
+
+Open `http://localhost:8000/examples/tube-preview.html` after building and
+serving the repository root. The example renders a tube whose geometry follows
+a measured three-dimensional polyline. Topology counts are obtained directly
+from the CPU core and orbit interaction is verified in the browser regression
+suite. This does not prove geometric intersection-free output.

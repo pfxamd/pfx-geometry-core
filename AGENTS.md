@@ -28,3 +28,11 @@ This repository is a deterministic geometry engine, **not** an AI generator and 
 - Straight polygon extrusion is not a general sweep. Do not silently accept concave polygons or holes under a convex-only API.
 - Distinguish geometrically closed surfaces from topologically welded watertight/manifold meshes. Separate cap and seam vertices currently remain unwelded.
 - Test oriented face winding, exact expected bounds, volume where appropriate, and interoperability with the renderer adapter.
+
+## Topology and sweep constraints
+
+- Use `analyzeMeshTopology` / `assertClosedOriented2Manifold` for combinatorial topology, never claim this proves watertight physical solids or detects triangle self-intersections.
+- Coordinate welding is analysis-only and tolerance-sensitive. Preserve original render normals and vertex buffers.
+- The supported 3D sweep is a circular tube around an OPEN polyline of waypoints with bounded turns, radius and subdivisions. It is not an arbitrary cross-section extrusion or generic curved-path sweep.
+- Each topological property needs negative regression fixtures: boundary edges, orientation reversal, oversubscribed edges, pinched vertex fans and tolerance-dependent welding.
+- Preserve deterministic geometry generation and explicitly reject unsupported segment degeneracy and sharp bends.
