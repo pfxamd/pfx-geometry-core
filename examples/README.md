@@ -56,3 +56,15 @@ the initial and rotated scenes.
 The triangle-intersection WebGL preview now shows the selected broad phase
 and conservative AABB candidate count. Screenshot tests assert that the BVH
 diagnostic really ran. Geometry and rendering stay separate.
+
+## Transverse triangle intersection (0.9.0)
+
+Open `http://localhost:8000/examples/segment-preview.html` after running
+`npm install && npm run build` and serving the repository root.
+The new example displays two source triangles and the calculated approximate
+intersection segment (with marked endpoints), with mouse orbiting.
+
+The visual test asserts the reported segment length (0.6 model units),
+the non-exact `approximate` flag, successful WebGL rendering and a changed
+frame after orbiting. It is a geometric diagnostic, not a photorealistic
+renderer or proof of all triangle intersections.
