@@ -1,6 +1,6 @@
 # PFx Geometry Core
 
-**Status:** alpha `0.2.0` — tested geometry/math foundations, not a general-purpose CAD engine.
+**Status:** alpha `0.3.0` — tested geometry/math foundations, not a general-purpose CAD engine.
 
 A small, deterministic, renderer-independent 3D geometry foundation for building measured and verifiable objects. No AI models, cloud requirements, random geometry generation, or UI framework dependencies.
 
@@ -15,8 +15,10 @@ A small, deterministic, renderer-independent 3D geometry foundation for building
 - Structured failures via `GeometryError` and a stable export surface.
 - Cubic Bézier curves with analytic derivatives and bounded deterministic sampling.
 - Bicubic Bézier surfaces from 4×4 control grids, analytic normals and indexed meshes.
+- Optional, separate Three.js renderer adapter for triangle meshes and perspective cameras.
+- Browser rendering regression check with a real WebGL 2 scene and orbit interaction.
 
-**Not implemented yet:** arbitrary CAD solids, constraints solver, NURBS, SDF, Boolean operations, renderer adapter, material simulation, organic modeling, semantic identification of objects. A mathematically valid mesh does not prove it represents an intended real-world object. `validateMesh` is a basic validator, not a manifold/watertightness proof.
+**Not implemented yet:** arbitrary CAD solids, constraints solver, NURBS, SDF, Boolean operations, physically based material simulation in core, organic modeling, semantic identification of objects. A mathematically valid mesh does not prove it represents an intended real-world object. `validateMesh` is a basic validator, not a manifold/watertightness proof.
 
 ## Conventions
 
@@ -77,9 +79,38 @@ After `npm run build`, serve the repository root with `python3 -m http.server 80
 
 This diagnostic draws mathematically projected surface and control curves using Canvas 2D. It is not a Three.js renderer. Unit tests, not visual appearance, verify the analytic formulas.
 
+## Three.js adapter · 0.3.0
+
+This is a separate module: `adapters/three/index.mjs`. **The geometry engine never imports Three.js.** The adapter is an optional renderer dependency, implemented with the official `three` library; no code or dependency of Three.js is vendored into the math engine.
+
+```js
+import { createBox, vec3, perspectiveCamera } from '@pfxamd/geometry-core';
+import { toThreeBufferGeometry, toThreePerspectiveCamera } from '@pfxamd/geometry-core/three';
+import * as THREE from 'three';
+
+const geometry = toThreeBufferGeometry(createBox(2, 1, 0.5));
+const camera = toThreePerspectiveCamera(perspectiveCamera({
+  eye: vec3(3, 2, 5), target: vec3(0, 0, 0),
+  fovYRadians: Math.PI / 3, aspect: 16 / 9, near: 0.1, far: 100,
+}));
+const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({color: 0xaac0c8}));
+const scene = new THREE.Scene();
+scene.add(mesh);
+// Supply your own WebGLRenderer, lights, canvas and render lifecycle.
+// Dispose of geometry and material when the scene is no longer needed.
+```
+
+The GPU adapter retains source triangle indices, winding and normals. It checks for **Float32 overflow and triangle collapse**, rejecting geometry that loses basic triangle validity when converted to GPU buffers. It does not guarantee accurate micrometer-scale details on large world coordinates or preserve all CPU double precision. The camera adapter copies the core view/projection matrices and creates a mutable Three.js camera usable with controls. After changing the viewport aspect, the application must update the camera projection explicitly.
+
+**Install:** `npm install`, then `npm run check`. Three.js is an optional peer dependency in the published package; applications must install a compatible version when using `/three`. The package has not been published to npm yet.
+
+**Browser test:** `npm run test:browser` requires a local Google Chrome executable. CI runs an actual WebGL 2 frame plus a drag-to-orbit comparison and uploads the initial and orbited screenshots.
+
+**Preview:** After `npm install && npm run build`, serve the repository root using `python3 -m http.server 8000`, then open `http://localhost:8000/examples/three-preview.html`. The local `node_modules/three` is mapped using a browser import map; no CDN is needed.
+
 ## Next milestone
 
-Separate renderer adapter and automated browser visual checks; later extend with precisely scoped revolution/sweep operations and geometric constraints.
+Extend geometry operations with precisely scoped, fully tested revolutions and sweeps. Do not add arbitrary primitives or AI inference as substitutes for object geometry.
 
 ## License
 

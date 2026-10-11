@@ -1,6 +1,6 @@
 {
   "name": "@pfxamd/geometry-core",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A deterministic, renderer-independent geometry and perspective foundation.",
   "type": "module",
   "private": false,
@@ -14,10 +14,12 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    }
+    },
+    "./three": "./adapters/three/index.mjs"
   },
   "files": [
     "dist",
+    "adapters",
     "README.md",
     "LICENSE"
   ],
@@ -26,10 +28,21 @@
     "prepare": "npm run build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test tests/*.test.mjs",
+    "test:browser": "npm run build && node --test tests/browser/*.test.mjs",
     "check": "npm run typecheck && npm test"
   },
+  "peerDependencies": {
+    "three": "^0.187.0"
+  },
+  "peerDependenciesMeta": {
+    "three": {
+      "optional": true
+    }
+  },
   "devDependencies": {
-    "typescript": "5.8.3"
+    "typescript": "5.8.3",
+    "three": "0.187.0",
+    "playwright-core": "1.56.1"
   },
   "license": "MIT"
 }

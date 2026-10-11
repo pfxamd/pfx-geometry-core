@@ -14,3 +14,12 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run check
       - run: node examples/first-scene.mjs
+      - name: Browser WebGL smoke test and screenshots
+        run: npm run test:browser
+      - name: Upload browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: three-adapter-screenshots
+          path: artifacts/*.png
+          if-no-files-found: ignore
