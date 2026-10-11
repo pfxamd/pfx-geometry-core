@@ -15,3 +15,12 @@ export {
   createBox, validateMesh, boundsOfMesh, convertLength,
   type TriangleMesh, type MeshBounds, type LengthUnit,
 } from './mesh.js';
+
+export {
+  cubicBezier3, cubicBezierDerivative3, sampleCubicBezier3,
+  type CubicBezierControls,
+} from './bezier.js';
+export {
+  evaluateBezierPatch3, createBezierPatchMesh,
+  type BezierPatchControls, type BezierPatchEvaluation, type PatchSegments,
+} from './surface.js';

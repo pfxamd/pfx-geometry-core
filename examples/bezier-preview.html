@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PFx Geometry Core · Bézier surface verification</title>
+  <style>
+    :root{color-scheme:dark;font:15px/1.5 system-ui}
+    body{margin:0;min-height:100vh;display:grid;place-items:center;background:#11161b;color:#ebeff1}
+    main{width:min(94vw,1120px);padding:24px 0}
+    header,footer{display:flex;justify-content:space-between;align-items:center;gap:16px}
+    h1{font-size:18px;font-weight:600}
+    small,footer{color:#9eacb4;font-size:12px}
+    canvas{width:100%;height:auto;display:block;border:1px solid #344047;border-radius:8px;background:#151d23}
+    footer{margin-top:12px}
+  </style>
+</head>
+<body>
+<main>
+<header><h1>Geometry verification / cubic curves and surfaces</h1><small>alpha 0.2.0</small></header>
+<canvas width="1120" height="680" aria-label="Deterministic 3D Bézier surface with control points"></canvas>
+<footer><span>4 × 4 control grid · analytic normals · 32 × 24 sampled mesh</span><span>No AI · no textures</span></footer>
+</main>
+<script type="module">
+  import {vec3,createBezierPatchMesh,sampleCubicBezier3,perspectiveCamera,projectPoint} from '../dist/index.js';
+  const V=vec3,canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d');
+  if(!ctx)throw Error('Canvas is unavailable');
+  const grid=Array.from({length:4},(_,j)=>Array.from({length:4},(_,i)=>
+    V((i/3-.5)*3.2,(j/3-.5)*2.6,(i===1||i===2)&&(j===1||j===2)?1.55:0)));
+  const mesh=createBezierPatchMesh(grid,{uSegments:32,vSegments:24});
+  const cam=perspectiveCamera({eye:V(5,-5,7),target:V(0,0,.27),up:V(0,0,1),
+    fovYRadians:Math.PI/3,aspect:1120/680,near:.1,far:100});
+  const project=p=>projectPoint(p,cam,{width:1120,height:680});
+  const vertices=[];
+  for(let i=0;i<mesh.positions.length;i+=3)
+    vertices.push(project(V(mesh.positions[i],mesh.positions[i+1],mesh.positions[i+2])));
+  const segments=(a,b,color,width=1)=>{
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);
+    ctx.strokeStyle=color;ctx.lineWidth=width;ctx.stroke();
+  };
+  ctx.fillStyle='#151d23';ctx.fillRect(0,0,1120,680);
+  for(let x=0;x<1120;x+=40)segments({x,y:0},{x,y:680},'#23313b',.6);
+  for(let y=0;y<680;y+=40)segments({x:0,y},{x:1120,y},'#23313b',.6);
+  const tris=[];
+  for(let k=0;k<mesh.indices.length;k+=3){
+    const [a,b,c]=mesh.indices.slice(k,k+3);
+    tris.push({a,b,c,depth:(vertices[a].depth+vertices[b].depth+vertices[c].depth)/3,
+      shade:Math.max(.3,mesh.normals[a*3+2])});
+  }
+  tris.sort((a,b)=>b.depth-a.depth);
+  for(const tri of tris){
+    const {a,b,c,shade}=tri;
+    ctx.fillStyle=`rgb(${Math.round(40*shade)},${Math.round(147*shade)},${Math.round(170*shade)})`;
+    ctx.beginPath();ctx.moveTo(vertices[a].x,vertices[a].y);
+    ctx.lineTo(vertices[b].x,vertices[b].y);ctx.lineTo(vertices[c].x,vertices[c].y);
+    ctx.closePath();ctx.fill();
+  }
+  for(let j=0;j<=24;j+=3)
+    for(let i=0;i<32;i++)segments(vertices[j*33+i],vertices[j*33+i+1],'#acd9df',.8);
+  for(let i=0;i<=32;i+=4)
+    for(let j=0;j<24;j++)segments(vertices[j*33+i],vertices[(j+1)*33+i],'#acd9df',.8);
+  for(const row of grid){
+    const samples=sampleCubicBezier3(row,48).map(project);
+    for(let i=0;i<48;i++)segments(samples[i],samples[i+1],'#f2cb91',2);
+    for(const p of row){
+      const s=project(p);ctx.beginPath();ctx.arc(s.x,s.y,4,0,2*Math.PI);
+      ctx.fillStyle='#f4d9b8';ctx.fill();
+    }
+  }
+  ctx.fillStyle='#e2e9ec';ctx.font='600 17px system-ui';ctx.fillText('BICUBIC BÉZIER PATCH',34,49);
+  ctx.fillStyle='#a5b2bb';ctx.font='14px system-ui';ctx.fillText('Sampled geometry, not guessed shapes',34,74);
+  document.documentElement.dataset.ready='true';
+</script>
+</body>
+</html>

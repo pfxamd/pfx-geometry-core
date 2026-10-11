@@ -1,6 +1,6 @@
 # PFx Geometry Core
 
-**Status:** alpha `0.1.0` — tested geometry/math foundations, not a general-purpose CAD engine.
+**Status:** alpha `0.2.0` — tested geometry/math foundations, not a general-purpose CAD engine.
 
 A small, deterministic, renderer-independent 3D geometry foundation for building measured and verifiable objects. No AI models, cloud requirements, random geometry generation, or UI framework dependencies.
 
@@ -13,8 +13,10 @@ A small, deterministic, renderer-independent 3D geometry foundation for building
 - A centered, flat-shaded triangle-mesh box with verified dimensions, winding and array layout.
 - Mesh bounds, non-degenerate-triangle checks and explicit meter/centimeter/millimeter conversions.
 - Structured failures via `GeometryError` and a stable export surface.
+- Cubic Bézier curves with analytic derivatives and bounded deterministic sampling.
+- Bicubic Bézier surfaces from 4×4 control grids, analytic normals and indexed meshes.
 
-**Not implemented yet:** arbitrary CAD solids, constraints solver, curves, SDF, Boolean operations, renderer adapter, material simulation, organic modeling, semantic identification of objects. A mathematically valid mesh does not prove it represents an intended real-world object. `validateMesh` is a basic validator, not a manifold/watertightness proof.
+**Not implemented yet:** arbitrary CAD solids, constraints solver, NURBS, SDF, Boolean operations, renderer adapter, material simulation, organic modeling, semantic identification of objects. A mathematically valid mesh does not prove it represents an intended real-world object. `validateMesh` is a basic validator, not a manifold/watertightness proof.
 
 ## Conventions
 
@@ -59,9 +61,25 @@ This package has not been published to npm. Import it from a local checkout or v
 
 `src/` contains only math, geometry, validation and camera-projection code. Display frameworks (Three.js/WebGL/WebGPU) are **adapters**, not geometry authorities. Geometry algorithms will be added as independently tested modules; changes must not silently change axes, units, winding or clip conventions.
 
+## Curves and surfaces · 0.2.0
+
+- `cubicBezier3(controls,t)` evaluates a four-control cubic Bézier curve for `0 <= t <= 1`.
+- `cubicBezierDerivative3(controls,t)` returns the **unnormalized** analytic derivative.
+- `sampleCubicBezier3(controls,segments)` includes endpoints; 1–4096 segments.
+- `evaluateBezierPatch3(grid,u,v)` evaluates 4 rows (v) × 4 columns (u) and analytic `dP/du`, `dP/dv` and their unit cross-product normal.
+- `createBezierPatchMesh(grid,{uSegments,vSegments})` samples an **open** surface with 1–128 subdivisions on each axis.
+
+These functions require explicitly authored control points. They **do not infer object identity**, cap a surface, join patches, guarantee absence of self-intersections, or establish a watertight solid. Degenerate inputs fail explicitly. The fixed triangle-area tolerance is scale-dependent.
+
+## Visual diagnostic
+
+After `npm run build`, serve the repository root with `python3 -m http.server 8000` and open `http://localhost:8000/examples/bezier-preview.html`.
+
+This diagnostic draws mathematically projected surface and control curves using Canvas 2D. It is not a Three.js renderer. Unit tests, not visual appearance, verify the analytic formulas.
+
 ## Next milestone
 
-Add a geometry-to-renderer adapter and browser visual regression tests without making the core dependent on a renderer. Then add parameterized curves and surfaces. New algorithms are accepted only with mathematical and regression tests.
+Separate renderer adapter and automated browser visual checks; later extend with precisely scoped revolution/sweep operations and geometric constraints.
 
 ## License
 
