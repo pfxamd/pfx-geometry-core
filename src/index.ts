@@ -41,3 +41,9 @@ export {
 export {
   sweepCircularTube, type TubeSweepOptions,
 } from './sweep.js';
+
+export {
+  analyzeMeshSelfIntersections, assertNoDetectedSelfIntersections,
+  type IntersectionOptions, type IntersectionKind,
+  type TriangleIntersectionFinding, type TriangleIntersectionReport,
+} from './intersections.js';
