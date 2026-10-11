@@ -90,3 +90,17 @@ only so the gaps are visible on screen. The measured model coordinates are
 never modified before diagnosis. No physical collision is claimed.
 The browser regression checks classifications, actual model-unit distances,
 WebGL rendering and orbit response.
+
+## Mesh-wide near-coplanar survey (0.12.0)
+
+Open `http://localhost:8000/examples/mesh-proximity-preview.html` after
+building and serving the repository root. The six-triangle scene is evaluated
+by `analyzeMeshNearCoplanarPairs` as **one mesh**, not by independent
+per-pair handpicked queries. The scan reports one projected area overlap
+across a small actual gap and one projected edge contact across a small gap.
+A widely separated pair is excluded from the broad-phase candidates.
+
+The displayed orange triangles are displaced far more than their **source
+geometry** solely to visualize small gaps. No actual intersection or
+watertightness is asserted. The browser regression verifies report counts,
+WebGL execution, and visible camera rotation.
