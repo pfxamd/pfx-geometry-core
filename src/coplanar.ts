@@ -57,56 +57,8 @@ export function classifyCoplanarTriangleContact3(
     axis===1?[p.x,p.z]:[p.x,p.y];
   const p = a.map(project) as [Point2D, Point2D, Point2D];
   const q = b.map(project) as [Point2D, Point2D, Point2D];
-  // Six edge normals provide the separating-axis theorem for two
-  // nondegenerate convex polygons. Test STRICT interior intersection.
-  let areaOverlap=true;
-  for(const [one,other] of [[p,q],[q,p]] as const) {
-    for(let i=0;i<3;i++){
-      const left=one[i]!,right=one[(i+1)%3]!,
-        opposite=one[(i+2)%3]!;
-      const interiorSign=orientation2D(left,right,opposite);
-      if(interiorSign===0)
-        throw new GeometryError('DEGENERATE_GEOMETRY','invalid projected triangle');
-      const touchesInterior=other.some(point=>
-        orientation2D(left,right,point)*interiorSign>0);
-      if(!touchesInterior) {
-        areaOverlap=false;
-        break;
-      }
-    }
-    if(!areaOverlap)break;
-  }
-  if(areaOverlap)
-    return Object.freeze({kind:'area-overlap',exactlyCoplanar:true});
-
-  // A non-area intersection can be an overlapping collinear EDGE,
-  // an isolated VERTEX / vertex-on-edge touch, or disjoint.
-  let pointTouch=false;
-  for(let i=0;i<3;i++)for(let j=0;j<3;j++){
-    const a0=p[i]!,a1=p[(i+1)%3]!;
-    const b0=q[j]!,b1=q[(j+1)%3]!;
-    const o0=orientation2D(a0,a1,b0),o1=orientation2D(a0,a1,b1);
-    const o2=orientation2D(b0,b1,a0),o3=orientation2D(b0,b1,a1);
-    if(o0===0&&o1===0) {
-      const axis2=Math.abs(a1[0]-a0[0])>=Math.abs(a1[1]-a0[1])?0:1;
-      const lo=Math.max(Math.min(a0[axis2],a1[axis2]),
-                        Math.min(b0[axis2],b1[axis2]));
-      const hi=Math.min(Math.max(a0[axis2],a1[axis2]),
-                        Math.max(b0[axis2],b1[axis2]));
-      if(hi>lo)return Object.freeze({kind:'edge-contact',exactlyCoplanar:true});
-      if(hi===lo)pointTouch=true;
-    }else if((o0===0&&onSegment(b0,a0,a1)) ||
-       (o1===0&&onSegment(b1,a0,a1)) ||
-       (o2===0&&onSegment(a0,b0,b1)) ||
-       (o3===0&&onSegment(a1,b0,b1))) {
-      pointTouch=true;
-    }else if(o0*o1<0&&o2*o3<0) {
-      // A transverse 2D crossing implies a positive-area intersection.
-      return Object.freeze({kind:'area-overlap',exactlyCoplanar:true});
-    }
-  }
-  return Object.freeze({kind:pointTouch?'point-contact':'disjoint',
-    exactlyCoplanar:true});
+  const kind=classifyProjectedTriangleContact2D(p,q);
+  return Object.freeze({kind,exactlyCoplanar:true});
 }
 
 function checkTriangle(input:Triangle3, name:string):readonly [Vec3,Vec3,Vec3]{
@@ -137,4 +89,62 @@ function dominant(n:readonly [number,number,number]):number{
 function onSegment(p:Point2D,a:Point2D,b:Point2D):boolean{
   return p[0]>=Math.min(a[0],b[0]) && p[0]<=Math.max(a[0],b[0]) &&
     p[1]>=Math.min(a[1],b[1]) && p[1]<=Math.max(a[1],b[1]);
+}
+
+/** Internal footprint classifier. Inputs must be validated nondegenerate
+ * projected triangles; returns planar contact, never 3D collision certainty.
+ */
+export function classifyProjectedTriangleContact2D(
+  p: readonly [Point2D,Point2D,Point2D],
+  q: readonly [Point2D,Point2D,Point2D],
+): Exclude<CoplanarContactKind,'indeterminate'> {
+  // Six edge normals provide the separating-axis theorem for two
+  // nondegenerate convex polygons. Test STRICT interior intersection.
+  let areaOverlap=true;
+  for(const [one,other] of [[p,q],[q,p]] as const) {
+    for(let i=0;i<3;i++){
+      const left=one[i]!,right=one[(i+1)%3]!,
+        opposite=one[(i+2)%3]!;
+      const interiorSign=orientation2D(left,right,opposite);
+      if(interiorSign===0)
+        throw new GeometryError('DEGENERATE_GEOMETRY','invalid projected triangle');
+      const touchesInterior=other.some(point=>
+        orientation2D(left,right,point)*interiorSign>0);
+      if(!touchesInterior) {
+        areaOverlap=false;
+        break;
+      }
+    }
+    if(!areaOverlap)break;
+  }
+  if(areaOverlap)
+    return 'area-overlap';
+
+  // A non-area intersection can be an overlapping collinear EDGE,
+  // an isolated VERTEX / vertex-on-edge touch, or disjoint.
+  let pointTouch=false;
+  for(let i=0;i<3;i++)for(let j=0;j<3;j++){
+    const a0=p[i]!,a1=p[(i+1)%3]!;
+    const b0=q[j]!,b1=q[(j+1)%3]!;
+    const o0=orientation2D(a0,a1,b0),o1=orientation2D(a0,a1,b1);
+    const o2=orientation2D(b0,b1,a0),o3=orientation2D(b0,b1,a1);
+    if(o0===0&&o1===0) {
+      const axis2=Math.abs(a1[0]-a0[0])>=Math.abs(a1[1]-a0[1])?0:1;
+      const lo=Math.max(Math.min(a0[axis2],a1[axis2]),
+                        Math.min(b0[axis2],b1[axis2]));
+      const hi=Math.min(Math.max(a0[axis2],a1[axis2]),
+                        Math.max(b0[axis2],b1[axis2]));
+      if(hi>lo)return 'edge-contact';
+      if(hi===lo)pointTouch=true;
+    }else if((o0===0&&onSegment(b0,a0,a1)) ||
+       (o1===0&&onSegment(b1,a0,a1)) ||
+       (o2===0&&onSegment(a0,b0,b1)) ||
+       (o3===0&&onSegment(a1,b0,b1))) {
+      pointTouch=true;
+    }else if(o0*o1<0&&o2*o3<0) {
+      // A transverse 2D crossing implies a positive-area intersection.
+      return 'area-overlap';
+    }
+  }
+  return pointTouch?'point-contact':'disjoint';
 }

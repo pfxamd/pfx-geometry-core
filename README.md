@@ -1,6 +1,6 @@
 # PFx Geometry Core
 
-**Status:** alpha `0.10.0` — tested geometry/math foundations, not a general-purpose CAD engine.
+**Status:** alpha `0.11.0` — tested geometry/math foundations, not a general-purpose CAD engine.
 
 A small, deterministic, renderer-independent 3D geometry foundation for building measured and verifiable objects. No AI models, cloud requirements, random geometry generation, or UI framework dependencies.
 
@@ -28,6 +28,7 @@ A small, deterministic, renderer-independent 3D geometry foundation for building
 - Seeded adversarial tests and reproducible benchmark reports comparing BVH and sweep-and-prune.
 - Adaptive-orientation classification for exactly coplanar triangle interiors, shared edges and isolated point contacts, with explicit near-coplanar uncertainty.
 - Seeded dense-cluster and elongated irregular triangle performance fixtures, with parity checks across broad-phase implementations.
+- Separate near-coplanar triangle diagnostic: measured plane separation, normal-angle difference and projected footprint classification without asserting 3D contact.
 
 **Not implemented yet:** arbitrary CAD solids, arbitrary-profile/curved-path sweeps, concave/holed extrusions, constraint solver, NURBS, SDF, Boolean operations, physically based material simulation in core, organic modeling, semantic identification of objects. A mathematically valid mesh does not prove it represents an intended real-world object. `validateMesh` is a basic validator, not a manifold/watertightness proof.
 
@@ -438,6 +439,53 @@ success. The script emits JSON with sample times from one warmup and
 three measured runs per mode; CI stores the JSON file with screenshot
 artifacts. Comparisons are **specific to these fixtures and the CI
 environment**. Final JavaScript heap size is **not** peak memory.
+
+## Near-coplanar inspection · 0.11.0
+
+`inspectNearCoplanarTriangles3(first, second, options?)` is an **independent
+diagnostic** for two explicitly defined triangles. It does not modify
+geometry or change the established mesh-wide collision detector.
+
+It checks the exact orientation signs of all vertices against both
+triangles' planes, estimates the maximum point-to-opposite-plane distance
+in model units using adaptive orientation arithmetic, and measures the
+*unoriented* angle between the planes. The results are:
+
+- `status:'coplanar'`: exactly coplanar for the represented input
+  coordinates, with a planar footprint classification
+- `status:'near-coplanar'`: separated or slightly tilted, but within the
+  specified distance and angular limits
+- `status:'outside-domain'`: exceeded `maxAngleRadians` or
+  `distanceTolerance`; includes a reason without guessing contact
+
+For the first two statuses, `projectedContact` may be `area-overlap`,
+`edge-contact`, `point-contact`, or `disjoint`. This is the relationship
+of the triangles' **2D coordinate-drop projections** on the strongest
+axis of the first triangle's plane, **not their physical 3D contact**.
+
+```js
+import {vec3,inspectNearCoplanarTriangles3} from '@pfxamd/geometry-core';
+
+const a=[vec3(0,0,0),vec3(2,0,0),vec3(0,2,0)];
+const b=[vec3(.2,.2,0.0000001),vec3(1.2,.2,0.0000001),
+  vec3(.2,1.2,0.0000001)];
+const result=inspectNearCoplanarTriangles3(a,b);
+// status: near-coplanar, projectedContact: area-overlap,
+// exactlyCoplanar: false. No 3D collision is claimed.
+```
+
+Options are `distanceTolerance` (default `1e-6`, model units) and
+`maxAngleRadians` (default `0.01`; upper limit `π/4`). Distances,
+normal magnitudes and angles remain floating-point approximations; exact
+plane membership is evaluated with the adaptive predicate for the
+represented IEEE-754 coordinates. A 2D projection does not preserve 3D
+separation, so even a projected area overlap can correspond to two
+disjoint parallel surfaces. Very small or extreme-scale triangles remain
+subject to the core's existing numerical validity limits.
+
+This diagnostic reuses the same validated 2D footprint classifier as
+the coplanar-contact API; the existing API and its result semantics
+remain unchanged. It is **not** an exact geometric collision kernel.
 
 ## License
 

@@ -88,3 +88,15 @@ This repository is a deterministic geometry engine, **not** an AI generator and 
 - Dense irregular benchmark fixtures must be deterministic and include parity
   between BVH and sweep. Never describe a small benchmark sample as a general
   performance guarantee.
+
+## Near-coplanar diagnostic rules (0.11.0)
+
+- Never equate projected footprint overlap with physical 3D contact.
+- A near-coplanar result is never marked exactly coplanar. Only adaptive
+  zero orientation of all vertices in both directions can establish exact
+  plane membership for the represented inputs.
+- Report distance and angular limits explicitly and reject out-of-domain
+  cases; never project triangles in-place or alter their source vertices.
+- Preserve established exact-coplanar, mesh-wide intersection and renderer
+  behavior. Keep dedicated tests for slanted planes, winding reversal,
+  normal reversal, numerical offsets and isolated boundary contacts.
