@@ -131,8 +131,81 @@ test('invalid options and excessive triangle counts fail explicitly',()=>{
   fails(()=>analyzeMeshSelfIntersections(mesh,{tolerance:0}),'INVALID_DIMENSION');
   fails(()=>analyzeMeshSelfIntersections(mesh,{tolerance:Infinity}),'INVALID_NUMBER');
   fails(()=>analyzeMeshSelfIntersections(mesh,{maxTriangles:1}),'INVALID_DIMENSION');
-  fails(()=>analyzeMeshSelfIntersections(mesh,{maxTriangles:1501}),'INVALID_DIMENSION');
+  fails(()=>analyzeMeshSelfIntersections(mesh,{maxTriangles:20001}),'INVALID_DIMENSION');
   fails(()=>analyzeMeshSelfIntersections(mesh,{maxFindings:0}),'INVALID_DIMENSION');
+  fails(()=>analyzeMeshSelfIntersections(mesh,{broadPhase:'invalid'}),'INVALID_DIMENSION');
+  fails(()=>analyzeMeshSelfIntersections(mesh,{maxCandidatePairs:0}),'INVALID_DIMENSION');
   fails(()=>analyzeMeshSelfIntersections(triangles(base,base,base),
     {maxTriangles:2}),'INVALID_DIMENSION');
+});
+
+test('BVH candidate traversal gives the exact same outcomes as sweep reference on constructed fixtures',()=>{
+  const fixtures=[
+    triangles(base,crossing),
+    triangles(base,planarOverlap),
+    join(createBox(2,2,2),move(createBox(2,2,2),.7,.4,.2)),
+    revolveProfile([{radius:1,height:0},{radius:1,height:2}],{radialSegments:24}),
+    sweepCircularTube([vec3(0,0,0),vec3(0,2,0),vec3(.35,3,.2)],
+      {radius:.2,radialSegments:20}),
+  ];
+  for(const mesh of fixtures){
+    const a=analyzeMeshSelfIntersections(mesh,{broadPhase:'sweep'});
+    const b=analyzeMeshSelfIntersections(mesh,{broadPhase:'bvh'});
+    for(const key of ['broadPhasePairs','testedPairs','excludedAdjacentPairs',
+      'crossings','coplanarOverlaps','pointContacts','uncertainPairs','totalFindings'])
+      assert.equal(b[key],a[key],`difference in ${key}`);
+    assert.deepEqual(b.findings,a.findings);
+  }
+});
+test('BVH finds the same overlap candidates with repeated and spatially irregular triangles',()=>{
+  const sets=[];
+  for(let i=0;i<135;i++){
+    const x=((i*17)%23)*.47;
+    const y=((i*31)%19)*.52;
+    const z=((i*7)%13)*.18;
+    sets.push([[x,y,z],[x+.8,y,z],[x,y+.8,z]]);
+  }
+  const mesh=triangles(...sets);
+  const a=analyzeMeshSelfIntersections(mesh,{broadPhase:'sweep',maxCandidatePairs:150000});
+  const b=analyzeMeshSelfIntersections(mesh,{broadPhase:'bvh',maxCandidatePairs:150000});
+  assert.equal(b.broadPhasePairs,a.broadPhasePairs);
+  assert.equal(b.totalFindings,a.totalFindings);
+  assert.deepEqual(b.findings,a.findings);
+});
+test('BVH supports 4096 distant triangles without enumerating quadratic pairs',()=>{
+  const positions=[],normals=[],indices=[];
+  for(let i=0;i<4096;i++){
+    const x=i*3;
+    const baseIndex=positions.length/3;
+    positions.push(x,0,0,x+1,0,0,x,1,0);
+    normals.push(0,0,1,0,0,1,0,0,1);
+    indices.push(baseIndex,baseIndex+1,baseIndex+2);
+  }
+  const report=analyzeMeshSelfIntersections({positions,normals,indices});
+  assert.equal(report.triangles,4096);
+  assert.equal(report.broadPhase,'bvh');
+  assert.equal(report.broadPhasePairs,0);
+  assert.equal(report.totalFindings,0);
+});
+test('dense overlapping triangles fail at the configured candidate budget',()=>{
+  const mesh=triangles(...Array.from({length:20},()=>base));
+  for(const broadPhase of ['bvh','sweep']){
+    fails(()=>analyzeMeshSelfIntersections(mesh,{
+      broadPhase,maxCandidatePairs:5,
+    }),'INVALID_DIMENSION');
+  }
+});
+test('one shared vertex does not conceal transverse intersection beyond that vertex',()=>{
+  const a=[[0,0,0],[2,0,0],[0,2,0]];
+  const b=[[0,0,0],[1,0,1],[1,1,-1]];
+  const report=analyzeMeshSelfIntersections(triangles(a,b));
+  assert.equal(report.crossings,1);
+  assert.equal(report.excludedAdjacentPairs,0);
+});
+test('two adjoining noncoplanar triangles sharing an edge are skipped as normal adjacency',()=>{
+  const a=[[0,0,0],[2,0,0],[0,2,0]];
+  const b=[[0,0,0],[2,0,0],[0,1,1]];
+  const report=analyzeMeshSelfIntersections(triangles(a,b));
+  assert.equal(report.excludedAdjacentPairs,1);
+  assert.equal(report.totalFindings,0);
 });

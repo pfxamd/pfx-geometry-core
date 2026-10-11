@@ -1,5 +1,6 @@
 import { finite, GeometryError, positive } from './errors.js';
 import { type TriangleMesh, validateMesh } from './mesh.js';
+import { scanTriangleAABBPairs, type BroadPhaseStrategy } from './broadphase.js';
 
 type V3 = readonly [number, number, number];
 type V2 = readonly [number, number];
@@ -14,8 +15,12 @@ type TriangleData = {
 export interface IntersectionOptions {
   /** Absolute distance tolerance in mesh coordinate units; default 1e-9. */
   readonly tolerance?: number;
-  /** Hard computational budget; default/max 1500 triangles. */
+  /** Upper bound on mesh triangles, default 12000, hard maximum 20000. */
   readonly maxTriangles?: number;
+  /** Maximum AABB-overlapping candidate pairs. Exceeding it fails explicitly. */
+  readonly maxCandidatePairs?: number;
+  /** Hierarchical BVH (default), or sweep-and-prune reference implementation. */
+  readonly broadPhase?: BroadPhaseStrategy;
   /** Maximum number of findings retained (counts remain complete); default 64. */
   readonly maxFindings?: number;
 }
@@ -36,8 +41,12 @@ export interface TriangleIntersectionReport {
   readonly triangles: number;
   readonly broadPhasePairs: number;
   readonly testedPairs: number;
-  /** Noncoplanar pairs sharing a coordinate-identified vertex are excluded. */
+  /** Noncoplanar pairs sharing a complete coordinate-identical edge are excluded. */
   readonly excludedAdjacentPairs: number;
+  /** Single shared-vertex point contacts ignored as expected mesh adjacency. */
+  readonly ignoredSharedVertexContacts: number;
+  readonly broadPhase: BroadPhaseStrategy;
+  readonly candidatePairBudget: number;
   readonly crossings: number;
   readonly coplanarOverlaps: number;
   readonly pointContacts: number;
@@ -99,11 +108,17 @@ function aabbOverlap(a: TriangleData, b: TriangleData, epsilon: number): boolean
   return true;
 }
 
-function sharedCoordinate(a: Triangle, b: Triangle, epsilon: number): boolean {
-  for (const p of a) for (const q of b) {
-    if (distance(p, q) <= epsilon) return true;
+function sharedCoordinateCount(a: Triangle, b: Triangle, epsilon: number): number {
+  let matches=0;
+  const used=new Set<number>();
+  for(const p of a){
+    for(let i=0;i<3;i++){
+      if(!used.has(i)&&distance(p,b[i]!)<=epsilon){
+        used.add(i);matches++;break;
+      }
+    }
   }
-  return false;
+  return matches;
 }
 
 function projected(p: V3, droppedAxis: number): V2 {
@@ -239,9 +254,10 @@ function narrowPhase(a: TriangleData, b: TriangleData, epsilon: number): Interse
  * Detects transverse crossings and area-overlapping coplanar triangles.
  * Also reports point contacts and numerical ambiguities.
  *
- * Limitation: NONCOPLANAR triangle pairs with a shared vertex coordinate are
- * excluded as expected mesh adjacency; their additional intersections are
- * not checked. Coplanar pairs are still checked for area overlap.
+ * Limitation: noncoplanar triangles sharing a full coordinate-identical edge
+ * are skipped as expected adjacency. Pairs sharing only one vertex are
+ * tested for additional crossing; shared point-only contact is ignored.
+ * Coplanar pairs are checked for positive-area overlap.
  *
  * Not a robust exact-predicate kernel, proof of collision freedom, containment
  * test, manifold test, or comprehensive self-intersection validator.
@@ -258,57 +274,66 @@ export function analyzeMeshSelfIntersections(
   if (!Number.isFinite(epsilon * epsilon)) {
     throw new GeometryError('INVALID_DIMENSION', 'intersection tolerance is too large');
   }
-  const maxTriangles = options.maxTriangles ?? 1500;
+  const maxTriangles = options.maxTriangles ?? 12000;
   const maxFindings = options.maxFindings ?? 64;
-  if (!Number.isSafeInteger(maxTriangles) || maxTriangles < 2 || maxTriangles > 1500 ||
-      !Number.isSafeInteger(maxFindings) || maxFindings < 1 || maxFindings > 1000) {
-    throw new GeometryError('INVALID_DIMENSION', 'maxTriangles must be 2..1500 and maxFindings 1..1000');
+  const maxCandidatePairs = options.maxCandidatePairs ?? 250000;
+  const broadPhase = options.broadPhase ?? 'bvh';
+  if (!Number.isSafeInteger(maxTriangles) || maxTriangles < 2 || maxTriangles > 20000 ||
+      !Number.isSafeInteger(maxFindings) || maxFindings < 1 || maxFindings > 1000 ||
+      !Number.isSafeInteger(maxCandidatePairs) || maxCandidatePairs < 1 ||
+      maxCandidatePairs > 2000000 || (broadPhase !== 'bvh' && broadPhase !== 'sweep')) {
+    throw new GeometryError('INVALID_DIMENSION',
+      'maxTriangles must be 2..20000, maxFindings 1..1000, maxCandidatePairs 1..2000000, broadPhase bvh|sweep');
   }
   const triangleCount = mesh.indices.length / 3;
   if (triangleCount > maxTriangles) {
     throw new GeometryError('INVALID_DIMENSION',
-      `Mesh has ${triangleCount} triangles; maximum for this diagnostic is ${maxTriangles}`);
+      `Mesh has ${triangleCount} triangles; budget is ${maxTriangles}`);
   }
   const triangles = Array.from({length:triangleCount},(_,i)=>triangleData(mesh,i));
-  const order = Array.from({length:triangleCount},(_,i)=>i)
-    .sort((a,b)=>triangles[a]!.min[0]-triangles[b]!.min[0]||a-b);
-  const findings: TriangleIntersectionFinding[] = [];
-  let broadPhasePairs = 0, testedPairs = 0, excludedAdjacentPairs = 0;
-  let crossings = 0, coplanarOverlaps = 0, pointContacts = 0, uncertainPairs = 0;
-  for (let sortedI = 0; sortedI < order.length; sortedI++) {
-    const firstIndex = order[sortedI]!, first = triangles[firstIndex]!;
-    for (let sortedJ = sortedI + 1; sortedJ < order.length; sortedJ++) {
-      const secondIndex = order[sortedJ]!, second = triangles[secondIndex]!;
-      if (second.min[0] > first.max[0] + epsilon) break;
-      if (!aabbOverlap(first, second, epsilon)) continue;
-      broadPhasePairs++;
-      const da = second.points.map(p=>dot(first.normal,subtract(p,first.points[0])));
-      const db = first.points.map(p=>dot(second.normal,subtract(p,second.points[0])));
-      const coplanar = da.every(d=>Math.abs(d)<=epsilon) &&
-                       db.every(d=>Math.abs(d)<=epsilon);
-      if (!coplanar && sharedCoordinate(first.points, second.points, epsilon)) {
-        excludedAdjacentPairs++;
-        continue;
-      }
-      testedPairs++;
-      const kind = narrowPhase(first, second, epsilon);
-      if (!kind) continue;
-      if (kind === 'crossing') crossings++;
-      else if (kind === 'coplanar-overlap') coplanarOverlaps++;
-      else if (kind === 'point-contact') pointContacts++;
-      else uncertainPairs++;
-      if (findings.length < maxFindings) {
-        findings.push(Object.freeze({
-          firstTriangle: Math.min(firstIndex,secondIndex),
-          secondTriangle: Math.max(firstIndex,secondIndex),
-          kind,
-        }));
-      }
+  const findings:TriangleIntersectionFinding[] = [];
+  let broadPhasePairs=0, testedPairs=0, excludedAdjacentPairs=0, ignoredSharedVertexContacts=0;
+  let crossings=0,coplanarOverlaps=0,pointContacts=0,uncertainPairs=0;
+  scanTriangleAABBPairs(triangles,epsilon,broadPhase,(firstIndex,secondIndex)=>{
+    broadPhasePairs++;
+    if (broadPhasePairs > maxCandidatePairs) {
+      throw new GeometryError('INVALID_DIMENSION',
+        `Broad-phase candidate count exceeded ${maxCandidatePairs}; no partial result returned`);
     }
-  }
-  const totalFindings = crossings + coplanarOverlaps + pointContacts + uncertainPairs;
+    const first=triangles[firstIndex]!,second=triangles[secondIndex]!;
+    const da=second.points.map(p=>dot(first.normal,subtract(p,first.points[0])));
+    const db=first.points.map(p=>dot(second.normal,subtract(p,second.points[0])));
+    const coplanar=da.every(d=>Math.abs(d)<=epsilon)&&
+                   db.every(d=>Math.abs(d)<=epsilon);
+    const shared=sharedCoordinateCount(first.points,second.points,epsilon);
+    // Noncoplanar triangles with the SAME edge intersect along that edge
+    // in exact geometry. Other contact beyond the shared edge would need
+    // coplanarity and is considered separately above.
+    if(!coplanar&&shared>=2){
+      excludedAdjacentPairs++;
+      return;
+    }
+    testedPairs++;
+    const kind=narrowPhase(first,second,epsilon);
+    if(!kind)return;
+    if(shared===1 && kind==='point-contact'){
+      ignoredSharedVertexContacts++;
+      return;
+    }
+    if(kind==='crossing')crossings++;
+    else if(kind==='coplanar-overlap')coplanarOverlaps++;
+    else if(kind==='point-contact')pointContacts++;
+    else uncertainPairs++;
+    if(findings.length<maxFindings){
+      findings.push(Object.freeze({firstTriangle:firstIndex,secondTriangle:secondIndex,kind}));
+    }
+  });
+  findings.sort((a,b)=>a.firstTriangle-b.firstTriangle||
+    a.secondTriangle-b.secondTriangle||a.kind.localeCompare(b.kind));
+  const totalFindings=crossings+coplanarOverlaps+pointContacts+uncertainPairs;
   return Object.freeze({
     triangles:triangleCount,broadPhasePairs,testedPairs,excludedAdjacentPairs,
+    ignoredSharedVertexContacts,broadPhase,candidatePairBudget:maxCandidatePairs,
     crossings,coplanarOverlaps,pointContacts,uncertainPairs,totalFindings,
     findings:Object.freeze(findings),truncated:totalFindings>findings.length,
     noDetectedIntersections:totalFindings===0,
