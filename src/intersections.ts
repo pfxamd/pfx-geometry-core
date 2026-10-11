@@ -45,6 +45,8 @@ export interface TriangleIntersectionReport {
   readonly excludedAdjacentPairs: number;
   /** Single shared-vertex point contacts ignored as expected mesh adjacency. */
   readonly ignoredSharedVertexContacts: number;
+  /** Shared-vertex ambiguity skipped; these pairs are NOT certified clear. */
+  readonly skippedSharedVertexAmbiguities: number;
   readonly broadPhase: BroadPhaseStrategy;
   readonly candidatePairBudget: number;
   readonly crossings: number;
@@ -189,7 +191,21 @@ function insideTriangle(p: V3, triangle: Triangle, normal: V3, epsilon: number):
   return true;
 }
 
-function narrowPhase(a: TriangleData, b: TriangleData, epsilon: number): IntersectionKind | null {
+function strictlyInsideTriangle(p:V3,triangle:Triangle,normal:V3,epsilon:number):boolean{
+  const axis=dominantAxis(normal);
+  const q=projected(p,axis),vertices=triangle.map(v=>projected(v,axis));
+  const direction=signedArea(vertices)>=0?1:-1;
+  for(let i=0;i<3;i++){
+    const a=vertices[i]!,b=vertices[(i+1)%3]!;
+    const span=subtract2(b,a);
+    const side=direction*cross2(span,subtract2(q,a));
+    if(side<=epsilon*Math.hypot(...span))return false;
+  }
+  return true;
+}
+
+function narrowPhase(a: TriangleData, b: TriangleData, epsilon: number,
+  sharedVertices=0): IntersectionKind | null {
   const planeDistances = (source: Triangle, target: TriangleData): number[] =>
     source.map(p => dot(target.normal, subtract(p, target.points[0])));
   const da = planeDistances(a.points, b);
@@ -242,6 +258,17 @@ function narrowPhase(a: TriangleData, b: TriangleData, epsilon: number): Interse
   };
   gather(a.points, b);
   gather(b.points, a);
+  if(sharedVertices===1 && intersections.length>=2){
+    for(let i=0;i<intersections.length;i++){
+      for(let j=i+1;j<intersections.length;j++){
+        const p=intersections[i]!,q=intersections[j]!;
+        const mid:V3=[(p[0]+q[0])/2,(p[1]+q[1])/2,(p[2]+q[2])/2];
+        if(strictlyInsideTriangle(mid,a.points,a.normal,epsilon)&&
+           strictlyInsideTriangle(mid,b.points,b.normal,epsilon))return 'crossing';
+      }
+    }
+    return 'uncertain';
+  }
   if (uncertain) return 'uncertain';
   if (intersections.length >= 2) return 'crossing';
   if (intersections.length === 1) return 'point-contact';
@@ -292,8 +319,34 @@ export function analyzeMeshSelfIntersections(
   }
   const triangles = Array.from({length:triangleCount},(_,i)=>triangleData(mesh,i));
   const findings:TriangleIntersectionFinding[] = [];
-  let broadPhasePairs=0, testedPairs=0, excludedAdjacentPairs=0, ignoredSharedVertexContacts=0;
+  let broadPhasePairs=0, testedPairs=0, excludedAdjacentPairs=0;
+  let ignoredSharedVertexContacts=0, skippedSharedVertexAmbiguities=0;
   let crossings=0,coplanarOverlaps=0,pointContacts=0,uncertainPairs=0;
+  // Keep the lexicographically smallest maxFindings regardless of BVH visitation order.
+  // Max-heap root is the largest kept index pair.
+  const compare=(a:TriangleIntersectionFinding,b:TriangleIntersectionFinding):number=>
+    a.firstTriangle-b.firstTriangle||a.secondTriangle-b.secondTriangle;
+  const offer=(entry:TriangleIntersectionFinding):void=>{
+    if(findings.length<maxFindings){
+      let i=findings.push(entry)-1;
+      while(i>0){
+        const parent=Math.floor((i-1)/2);
+        if(compare(findings[parent]!,findings[i]!)>=0)break;
+        [findings[parent],findings[i]]=[findings[i]!,findings[parent]!];
+        i=parent;
+      }
+    }else if(compare(entry,findings[0]!)<0){
+      findings[0]=entry;let i=0;
+      while(true){
+        const left=2*i+1,right=left+1;let largest=i;
+        if(left<findings.length&&compare(findings[left]!,findings[largest]!)>0)largest=left;
+        if(right<findings.length&&compare(findings[right]!,findings[largest]!)>0)largest=right;
+        if(largest===i)break;
+        [findings[i],findings[largest]]=[findings[largest]!,findings[i]!];
+        i=largest;
+      }
+    }
+  };
   scanTriangleAABBPairs(triangles,epsilon,broadPhase,(firstIndex,secondIndex)=>{
     broadPhasePairs++;
     if (broadPhasePairs > maxCandidatePairs) {
@@ -314,26 +367,31 @@ export function analyzeMeshSelfIntersections(
       return;
     }
     testedPairs++;
-    const kind=narrowPhase(first,second,epsilon);
+    const kind=narrowPhase(first,second,epsilon,shared);
     if(!kind)return;
     if(shared===1 && kind==='point-contact'){
       ignoredSharedVertexContacts++;
+      return;
+    }
+    if(shared===1 && kind==='uncertain'){
+      // For a common vertex this can be an ordinary corner contact.
+      // Not verified clear: track this skipped numerical ambiguity explicitly.
+      skippedSharedVertexAmbiguities++;
       return;
     }
     if(kind==='crossing')crossings++;
     else if(kind==='coplanar-overlap')coplanarOverlaps++;
     else if(kind==='point-contact')pointContacts++;
     else uncertainPairs++;
-    if(findings.length<maxFindings){
-      findings.push(Object.freeze({firstTriangle:firstIndex,secondTriangle:secondIndex,kind}));
-    }
+    offer(Object.freeze({firstTriangle:firstIndex,secondTriangle:secondIndex,kind}));
   });
   findings.sort((a,b)=>a.firstTriangle-b.firstTriangle||
     a.secondTriangle-b.secondTriangle||a.kind.localeCompare(b.kind));
   const totalFindings=crossings+coplanarOverlaps+pointContacts+uncertainPairs;
   return Object.freeze({
     triangles:triangleCount,broadPhasePairs,testedPairs,excludedAdjacentPairs,
-    ignoredSharedVertexContacts,broadPhase,candidatePairBudget:maxCandidatePairs,
+    ignoredSharedVertexContacts,skippedSharedVertexAmbiguities,
+    broadPhase,candidatePairBudget:maxCandidatePairs,
     crossings,coplanarOverlaps,pointContacts,uncertainPairs,totalFindings,
     findings:Object.freeze(findings),truncated:totalFindings>findings.length,
     noDetectedIntersections:totalFindings===0,
