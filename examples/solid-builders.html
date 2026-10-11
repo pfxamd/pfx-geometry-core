@@ -29,7 +29,7 @@
 <main>
   <header><h1>PFx Geometry Core / solid construction</h1><small>alpha 0.4.0 · WebGL 2 · deterministic geometry</small></header>
   <div class="scene" id="scene">
-    <div class="hud"><b>Constructed, not guessed.</b><small>Left: measured revolution · Right: convex straight extrusion</small></div>
+    <div class="hud"><b>Revolution / Extrusion</b><small>Left: measured revolution · Right: convex straight extrusion</small></div>
     <div class="status" id="status">Initializing...</div>
   </div>
   <footer><span>CPU-computed vertices, outward winding and geometric validation</span><span>Drag to orbit · Scroll to zoom</span></footer>
@@ -64,9 +64,11 @@ try{
   const right=new THREE.Mesh(extruded,rightMaterial);
   right.position.set(1.6,-.1,-.3);
   scene.add(left,right);
-  scene.add(new THREE.HemisphereLight(0xd8edff,0x1a2433,2.5));
+  scene.add(new THREE.HemisphereLight(0xd8edff,0x657181,2.5));
   const light=new THREE.DirectionalLight(0xffffff,3.8);light.position.set(-3,6,8);scene.add(light);
   const edge=new THREE.DirectionalLight(0x97c6ff,2.0);edge.position.set(5,0,-3);scene.add(edge);
+  const fill=new THREE.DirectionalLight(0xc1d9f0,1.5);
+  fill.position.set(-1,-6,1);scene.add(fill);
   const ratio=sceneElement.clientWidth/sceneElement.clientHeight;
   const coreCamera=perspectiveCamera({
     eye:vec3(5,3.2,9),target:vec3(0,0,0),
