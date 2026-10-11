@@ -68,3 +68,13 @@ The visual test asserts the reported segment length (0.6 model units),
 the non-exact `approximate` flag, successful WebGL rendering and a changed
 frame after orbiting. It is a geometric diagnostic, not a photorealistic
 renderer or proof of all triangle intersections.
+
+## Coplanar triangle contact visual diagnostic (0.10.0)
+
+Open `http://localhost:8000/examples/coplanar-preview.html` after building
+and serving the repository root. Three groups of coplanar 3D triangle pairs
+display positive area-overlap, an edge-only contact and an isolated point
+contact. The small visual Z separation in orange overlay triangles is a
+**renderer-only anti-z-fighting offset**; it is NOT part of the geometry
+tested by `classifyCoplanarTriangleContact3`. Browser tests verify the
+three classification results, WebGL rendering and orbit response.
