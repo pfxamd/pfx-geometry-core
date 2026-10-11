@@ -1,6 +1,6 @@
 # PFx Geometry Core
 
-**Status:** alpha `0.3.0` — tested geometry/math foundations, not a general-purpose CAD engine.
+**Status:** alpha `0.4.0` — tested geometry/math foundations, not a general-purpose CAD engine.
 
 A small, deterministic, renderer-independent 3D geometry foundation for building measured and verifiable objects. No AI models, cloud requirements, random geometry generation, or UI framework dependencies.
 
@@ -17,8 +17,10 @@ A small, deterministic, renderer-independent 3D geometry foundation for building
 - Bicubic Bézier surfaces from 4×4 control grids, analytic normals and indexed meshes.
 - Optional, separate Three.js renderer adapter for triangle meshes and perspective cameras.
 - Browser rendering regression check with a real WebGL 2 scene and orbit interaction.
+- Full-turn revolution of positive-radius profiles with optional flat end discs.
+- Straight +Z extrusion of strictly convex CCW polygons, including front/back and side faces.
 
-**Not implemented yet:** arbitrary CAD solids, constraints solver, NURBS, SDF, Boolean operations, physically based material simulation in core, organic modeling, semantic identification of objects. A mathematically valid mesh does not prove it represents an intended real-world object. `validateMesh` is a basic validator, not a manifold/watertightness proof.
+**Not implemented yet:** arbitrary CAD solids, arbitrary-path sweeps, concave/holed extrusions, constraint solver, NURBS, SDF, Boolean operations, physically based material simulation in core, organic modeling, semantic identification of objects. A mathematically valid mesh does not prove it represents an intended real-world object. `validateMesh` is a basic validator, not a manifold/watertightness proof.
 
 ## Conventions
 
@@ -108,9 +110,55 @@ The GPU adapter retains source triangle indices, winding and normals. It checks 
 
 **Preview:** After `npm install && npm run build`, serve the repository root using `python3 -m http.server 8000`, then open `http://localhost:8000/examples/three-preview.html`. The local `node_modules/three` is mapped using a browser import map; no CDN is needed.
 
+## Measured solid builders · 0.4.0
+
+`revolveProfile(profile, {radialSegments, capEnds?})` revolves a polyline of
+`{radius, height}` pairs by 360° around **Y**. Heights must be strictly
+ascending and radii strictly positive. Radial segmentation is an integer
+between 3 and 256. `capEnds` defaults to `true`; flat end discs are
+created as separate faces with outward normals. Open ends are supported
+via `capEnds:false`.
+
+`extrudeConvexPolygon(polygon, depth)` extrudes **strictly convex CCW**
+`{x,y}` points along **+Z**, from `z=0` to `z=depth`. This is a
+**straight-line extrusion**, not a general 3D sweep. Both end caps and
+flat-shaded side faces are included. Convexity, order, non-degeneracy,
+finite inputs and output triangle buffers are checked.
+
+```js
+import {revolveProfile, extrudeConvexPolygon} from '@pfxamd/geometry-core';
+
+const turned = revolveProfile([
+  {radius:0.5,height:0},
+  {radius:1,height:1},
+  {radius:0.75,height:2},
+], {radialSegments:64});
+
+const extruded = extrudeConvexPolygon([
+  {x:0,y:0},{x:2,y:0},{x:2,y:1},{x:0,y:1},
+], 0.5);
+```
+
+The meshes preserve input dimensions and outward face winding. Capped
+surfaces are spatially closed, but their flat-shaded/seam vertices
+are duplicated: **no topological welding, manifold or watertight
+proof** is asserted. A mathematical profile can also self-intersect
+under certain conditions; the current validator does not rule this out.
+CPU precision, mesh validation tolerance, and GPU Float32 conversion
+limitations from earlier versions still apply.
+
+**Visual test:** after `npm install && npm run build`, serve the repository
+root using `python3 -m http.server 8000` and open
+`http://localhost:8000/examples/solid-builders.html`.
+`npm run test:browser` captures evidence for this new example as well as
+the existing Three.js adapter example.
+
 ## Next milestone
 
-Extend geometry operations with precisely scoped, fully tested revolutions and sweeps. Do not add arbitrary primitives or AI inference as substitutes for object geometry.
+Add topological adjacency/watertightness verification and more controlled
+geometry operations (e.g. sweeps along defined paths), each with mathematical
+tests, explicit domain constraints and visual diagnostics. Never substitute
+random primitives or generated geometry for a specific unsupported object.
 
 ## License
 

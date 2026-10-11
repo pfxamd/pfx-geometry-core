@@ -21,3 +21,10 @@ This repository is a deterministic geometry engine, **not** an AI generator and 
 - `npm run check` succeeds.
 - A deterministic example demonstrates the new operation.
 - README explains conventions, intended use and remaining limitations.
+
+## Solid builder restrictions
+
+- Revolution profiles specify positive radius and strictly ascending Y heights; disallow arbitrary looping/self-intersecting profiles until a dedicated checker exists.
+- Straight polygon extrusion is not a general sweep. Do not silently accept concave polygons or holes under a convex-only API.
+- Distinguish geometrically closed surfaces from topologically welded watertight/manifold meshes. Separate cap and seam vertices currently remain unwelded.
+- Test oriented face winding, exact expected bounds, volume where appropriate, and interoperability with the renderer adapter.
