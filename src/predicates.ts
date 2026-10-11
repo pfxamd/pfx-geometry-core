@@ -30,7 +30,9 @@ export function orientation2D(a: Point2D, b: Point2D, c: Point2D): OrientationSi
 
 /**
  * Adaptive-precision point-versus-plane orientation.
- * Zero denotes exact coplanarity for the supplied floating-point coordinates.
+ * Positive means d lies above the oriented ABC plane in core +Y-up
+ * coordinates. The upstream predicate has the opposite sign.
+ * Zero denotes coplanarity for the represented floating-point coordinates.
  */
 export function orientation3D(
   a: Vec3, b: Vec3, c: Vec3, d: Vec3,
@@ -44,7 +46,7 @@ export function orientation3D(
     finite(p.y, 'coordinate y');
     finite(p.z, 'coordinate z');
   }
-  return signOf(orient3d(
+  return signOf(-orient3d(
     a.x,a.y,a.z,b.x,b.y,b.z,c.x,c.y,c.z,d.x,d.y,d.z,
   ));
 }
