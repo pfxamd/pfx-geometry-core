@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PFx Geometry Core — measured intersection segment</title>
+<style>
+:root{color-scheme:dark;font:14px/1.5 system-ui}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:#10151a;color:#e5edf0}
+main{width:min(1100px,95vw);padding:20px 0}header,footer{display:flex;justify-content:space-between;gap:15px;align-items:center}
+h1{font-size:17px;font-weight:550}header small,footer{font-size:12px;color:#aabdc6}
+.stage{position:relative;border:1px solid #33434c;border-radius:12px;height:min(68vh,650px);min-height:390px;overflow:hidden;background:#111d26}
+.stage canvas{width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+.overlay{position:absolute;top:20px;left:25px;pointer-events:none;display:grid;gap:5px}
+.overlay strong{font-size:20px;font-weight:560}.overlay span,.status{font:12px ui-monospace,monospace;color:#bcd4de}
+.status{position:absolute;bottom:20px;left:25px;pointer-events:none}footer{padding-top:12px}
+</style>
+<script type="importmap">
+{"imports":{"three":"../node_modules/three/build/three.module.js","three/addons/":"../node_modules/three/examples/jsm/","robust-predicates":"../node_modules/robust-predicates/index.js"}}
+</script>
+</head>
+<body>
+<main>
+<header><h1>PFx Geometry Core / transverse intersection</h1><small>alpha 0.9.0 · measured geometry</small></header>
+<section class="stage" id="stage">
+  <div class="overlay"><strong>Intersection, measured.</strong><span>Two geometric planes · one estimated segment</span></div>
+  <div class="status" id="status">Computing geometry...</div>
+</section>
+<footer><span>Yellow: approximate computed segment endpoints</span><span>Drag to orbit · Scroll to zoom</span></footer>
+</main>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {vec3,perspectiveCamera,estimateTransverseTriangleIntersection} from '../dist/index.js';
+import {toThreeBufferGeometry,toThreePerspectiveCamera} from '../adapters/three/index.mjs';
+const stage=document.getElementById('stage'),status=document.getElementById('status');
+try{
+  const v=vec3;
+  const a=[v(0,0,0),v(2,0,0),v(0,2,0)];
+  const b=[v(.4,.5,-1),v(1.6,.5,-1),v(1,.5,1)];
+  const hit=estimateTransverseTriangleIntersection(a,b);
+  if(hit.status!=='crossing')throw Error('Expected transverse intersection not determined');
+  const scene=new THREE.Scene();scene.background=new THREE.Color(0x111d26);
+  const geos=[],mats=[];
+  function addTriangle(points,color){
+    const positions=points.flatMap(p=>[p.x,p.y,p.z]);
+    const geometry=toThreeBufferGeometry({positions,normals:[
+      0,0,1,0,0,1,0,0,1,
+    ],indices:[0,1,2]});
+    const material=new THREE.MeshStandardMaterial({
+      color,transparent:true,opacity:.57,side:THREE.DoubleSide,metalness:0,roughness:.52,
+      depthWrite:false,
+    });
+    const mesh=new THREE.Mesh(geometry,material);
+    scene.add(mesh);geos.push(geometry);mats.push(material);
+  }
+  addTriangle(a,0x7fd0d4);addTriangle(b,0xeab884);
+  const lineGeometry=new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(hit.start.x,hit.start.y,hit.start.z),
+    new THREE.Vector3(hit.end.x,hit.end.y,hit.end.z),
+  ]);
+  const lineMaterial=new THREE.LineBasicMaterial({color:0xffec86,depthTest:false});
+  const line=new THREE.Line(lineGeometry,lineMaterial);
+  line.renderOrder=10;
+  scene.add(line);geos.push(lineGeometry);mats.push(lineMaterial);
+  for(const point of [hit.start,hit.end]){
+    const geometry=new THREE.SphereGeometry(.035,12,8);
+    const material=new THREE.MeshBasicMaterial({color:0xffec86,depthTest:false});
+    const marker=new THREE.Mesh(geometry,material);
+    marker.position.set(point.x,point.y,point.z);
+    marker.renderOrder=11;scene.add(marker);geos.push(geometry);mats.push(material);
+  }
+  scene.add(new THREE.HemisphereLight(0xd8e9ff,0x587488,2.5));
+  const sun=new THREE.DirectionalLight(0xffffff,3);
+  sun.position.set(-3,5,5);scene.add(sun);
+  const camera=toThreePerspectiveCamera(perspectiveCamera({
+    eye:v(3.8,2.9,5),target:v(.75,.65,0),
+    fovYRadians:Math.PI/4,aspect:stage.clientWidth/stage.clientHeight,
+    near:.1,far:100,
+  }));
+  const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+  renderer.outputColorSpace=THREE.SRGBColorSpace;
+  renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+  stage.insertBefore(renderer.domElement,stage.firstChild);
+  const orbit=new OrbitControls(camera,renderer.domElement);
+  orbit.target.set(.75,.65,0);orbit.enableDamping=false;
+  orbit.minDistance=2;orbit.maxDistance=15;
+  const render=()=>{
+    renderer.render(scene,camera);
+    const measure=Math.hypot(hit.end.x-hit.start.x,hit.end.y-hit.start.y,hit.end.z-hit.start.z);
+    status.textContent=`Computed length: ${measure.toFixed(6)} model units · approximate`;
+    window.__pfxSegmentStats={status:hit.status,approximate:hit.approximate,length:measure,
+      start:{x:hit.start.x,y:hit.start.y,z:hit.start.z},
+      end:{x:hit.end.x,y:hit.end.y,z:hit.end.z}};
+    document.documentElement.dataset.ready='true';
+  };
+  orbit.addEventListener('change',render);
+  const resize=()=>{
+    const width=Math.max(1,stage.clientWidth),height=Math.max(1,stage.clientHeight);
+    renderer.setSize(width,height,false);
+    camera.aspect=width/height;camera.updateProjectionMatrix();render();
+  };
+  new ResizeObserver(resize).observe(stage);resize();
+  renderer.domElement.addEventListener('webglcontextlost',()=>{
+    document.documentElement.dataset.ready='error';status.textContent='WebGL context lost';
+  });
+  window.addEventListener('pagehide',()=>{
+    orbit.dispose();renderer.dispose();
+    geos.forEach(g=>g.dispose());mats.forEach(m=>m.dispose());
+  },{once:true});
+}catch(error){
+  window.__pfxSegmentError=error.message;
+  document.documentElement.dataset.ready='error';
+  status.textContent=`Failed: ${error.message}`;
+  console.error(error);
+}
+</script>
+</body>
+</html>
