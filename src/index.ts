@@ -55,3 +55,10 @@ export {
   inspectNearCoplanarTriangles3,
   type NearCoplanarOptions, type NearCoplanarResult, type ProjectedTriangleContact,
 } from './near-coplanar.js';
+
+export {
+  analyzeMeshNearCoplanarPairs,
+  type MeshNearCoplanarOptions,
+  type MeshNearCoplanarFinding,
+  type MeshNearCoplanarReport,
+} from './mesh-proximity.js';

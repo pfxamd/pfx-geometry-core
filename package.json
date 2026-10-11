@@ -1,6 +1,6 @@
 {
   "name": "@pfxamd/geometry-core",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "A deterministic, renderer-independent geometry and perspective foundation.",
   "type": "module",
   "private": false,
