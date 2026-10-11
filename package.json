@@ -32,7 +32,7 @@
     "check": "npm run typecheck && npm test"
   },
   "peerDependencies": {
-    "three": "^0.187.0"
+    "three": "^0.186.1"
   },
   "peerDependenciesMeta": {
     "three": {
@@ -41,7 +41,7 @@
   },
   "devDependencies": {
     "typescript": "5.8.3",
-    "three": "0.187.0",
+    "three": "0.186.1",
     "playwright-core": "1.56.1"
   },
   "license": "MIT"
