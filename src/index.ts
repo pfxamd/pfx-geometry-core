@@ -24,3 +24,13 @@ export {
   evaluateBezierPatch3, createBezierPatchMesh,
   type BezierPatchControls, type BezierPatchEvaluation, type PatchSegments,
 } from './surface.js';
+
+export {
+  revolveProfile,
+  type RevolutionProfilePoint,
+  type RevolutionOptions,
+} from './revolve.js';
+export {
+  extrudeConvexPolygon,
+  type Point2,
+} from './extrude.js';
