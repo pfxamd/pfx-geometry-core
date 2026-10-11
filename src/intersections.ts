@@ -128,7 +128,7 @@ function signedArea(poly: ReadonlyArray<V2>): number {
 }
 
 /** Clip one convex triangle to the half-planes of another convex triangle. */
-function coplanarOverlapArea(a: Triangle, b: Triangle, normal: V3, epsilon: number): number {
+function coplanarOverlapArea(a: Triangle, b: Triangle, normal: V3): number {
   const axis = dominantAxis(normal);
   let subject = a.map(p => projected(p, axis));
   const clip = b.map(p => projected(p, axis));
@@ -137,12 +137,11 @@ function coplanarOverlapArea(a: Triangle, b: Triangle, normal: V3, epsilon: numb
     const v = clip[edge]!, w = clip[(edge + 1) % 3]!;
     const side = (p: V2): number =>
       direction * cross2(subtract2(w, v), subtract2(p, v));
-    const tolerance = epsilon * Math.hypot(w[0] - v[0], w[1] - v[1]);
     const output: V2[] = [];
     for (let i = 0; i < subject.length; i++) {
       const current = subject[i]!, previous = subject[(i + subject.length - 1) % subject.length]!;
       const dCur = side(current), dPrev = side(previous);
-      const inCur = dCur >= -tolerance, inPrev = dPrev >= -tolerance;
+      const inCur = dCur >= 0, inPrev = dPrev >= 0;
       if (inCur !== inPrev) {
         const denom = dPrev - dCur;
         if (denom !== 0) {
@@ -186,7 +185,17 @@ function narrowPhase(a: TriangleData, b: TriangleData, epsilon: number): Interse
 
   if (da.every(d => Math.abs(d) <= epsilon) &&
       db.every(d => Math.abs(d) <= epsilon)) {
-    return coplanarOverlapArea(a.points, b.points, a.normal, epsilon) > epsilon * epsilon * 4
+    // Ignore sub-resolution ribbons that can appear along a shared edge
+    // due to floating-point clipping. Threshold has physical AREA units.
+    const maxEdge = (triangle: Triangle): number => Math.max(
+      distance(triangle[0], triangle[1]),
+      distance(triangle[1], triangle[2]),
+      distance(triangle[2], triangle[0]),
+    );
+    const areaTolerance = 16 * epsilon * Math.max(
+      epsilon, maxEdge(a.points), maxEdge(b.points),
+    );
+    return coplanarOverlapArea(a.points, b.points, a.normal) > areaTolerance
       ? 'coplanar-overlap' : null;
   }
 

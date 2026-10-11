@@ -97,6 +97,15 @@ test('existing closed solid builders have no detected self-intersections',()=>{
     assert.equal(analyzeMeshTopology(mesh).boundaryEdges,0);
   }
 });
+test('lathe caps with touching triangular wedges are NOT area overlap (regression)',()=>{
+  for (const segments of [12,24,32,64]) {
+    const mesh=revolveProfile([{radius:1,height:0},{radius:1,height:2}],
+      {radialSegments:segments});
+    const report=analyzeMeshSelfIntersections(mesh);
+    assert.equal(report.totalFindings,0,
+      `segments=${segments}: ${JSON.stringify(report.findings)}`);
+  }
+});
 test('interpenetrating offset box surfaces trigger geometric findings',()=>{
   const combined=join(createBox(2,2,2),move(createBox(2,2,2),.7,.4,.2));
   const r=analyzeMeshSelfIntersections(combined);
