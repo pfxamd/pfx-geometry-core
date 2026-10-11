@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PFx Geometry Core · Perspective verification</title>
+  <style>
+    :root { color-scheme: dark; font: 15px/1.5 system-ui, sans-serif; }
+    body { background: #111519; color: #d8e0e4; min-height: 100vh; margin: 0; display: grid; place-items: center; }
+    main { width: min(95vw, 1050px); }
+    header { display: flex; justify-content: space-between; align-items: baseline; gap: 20px; }
+    h1 { font-size: 1.1rem; font-weight: 600; }
+    small { color: #96a5ac; }
+    canvas { display: block; width: 100%; height: auto; border: 1px solid #33404a; border-radius: 8px; }
+    footer { display: flex; justify-content: space-between; margin-top: 12px; color: #96a5ac; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <header><h1>Geometry Core — perspective verification</h1><small>alpha 0.1.0 · mathematical wireframe</small></header>
+    <canvas width="1000" height="600" aria-label="Measured 2 × 1 × 0.5 box in perspective"></canvas>
+    <footer><span>Box: 2 × 1 × 0.5 m</span><span>Camera: (3, 2, 5) · FOV 60°</span></footer>
+  </main>
+  <script type="module">
+    import { createBox, boundsOfMesh, perspectiveCamera, projectPoint, vec3 } from '../dist/index.js';
+    const box = createBox(2, 1, 0.5);
+    const bounds = boundsOfMesh(box);
+    const canvas = document.querySelector('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Canvas unavailable');
+    const camera = perspectiveCamera({
+      eye: vec3(3, 2, 5), target: vec3(0, 0, 0),
+      fovYRadians: Math.PI / 3, aspect: canvas.width / canvas.height, near: 0.1, far: 100,
+    });
+    const x = bounds.size.x / 2, y = bounds.size.y / 2, z = bounds.size.z / 2;
+    const corners = [
+      vec3(-x, -y, -z), vec3(x, -y, -z), vec3(x, y, -z), vec3(-x, y, -z),
+      vec3(-x, -y, z), vec3(x, -y, z), vec3(x, y, z), vec3(-x, y, z),
+    ].map((p) => projectPoint(p, camera, { width: canvas.width, height: canvas.height }));
+    const edges = [ [0,1], [1,2], [2,3], [3,0], [4,5], [5,6], [6,7], [7,4], [0,4], [1,5], [2,6], [3,7] ];
+    context.fillStyle = '#111519'; context.fillRect(0, 0, canvas.width, canvas.height);
+    context.strokeStyle = '#82cce5'; context.lineWidth = 3; context.lineCap = 'round';
+    for (const [a, b] of edges) {
+      context.beginPath(); context.moveTo(corners[a].x, corners[a].y);
+      context.lineTo(corners[b].x, corners[b].y); context.stroke();
+    }
+    for (const corner of corners) {
+      context.beginPath(); context.arc(corner.x, corner.y, 4.5, 0, Math.PI * 2);
+      context.fillStyle = '#f5f2e7'; context.fill();
+    }
+    context.fillStyle = '#92a5ad'; context.font = '16px system-ui';
+    context.fillText('12 measured edges · 8 unique corners · 12 triangles', 32, 45);
+    document.documentElement.dataset.ready = 'true';
+  </script>
+</body>
+</html>
