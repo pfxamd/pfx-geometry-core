@@ -1,6 +1,6 @@
 # PFx Geometry Core
 
-**Status:** alpha `0.5.0` — tested geometry/math foundations, not a general-purpose CAD engine.
+**Status:** alpha `0.6.0` — tested geometry/math foundations, not a general-purpose CAD engine.
 
 A small, deterministic, renderer-independent 3D geometry foundation for building measured and verifiable objects. No AI models, cloud requirements, random geometry generation, or UI framework dependencies.
 
@@ -21,6 +21,7 @@ A small, deterministic, renderer-independent 3D geometry foundation for building
 - Straight +Z extrusion of strictly convex CCW polygons, including front/back and side faces.
 - Topological surface analysis after configurable coordinate welding: boundaries, orientation conflicts, over-subscribed edges, pinched vertices and connected components.
 - Controlled circular-profile sweeps following open 3D polylines (bounded turning angles, explicit radius and planar end caps).
+- Bounded triangle-pair geometric intersection diagnostics, including crossing, coplanar area overlap, isolated point contact and indeterminate edge-plane cases.
 
 **Not implemented yet:** arbitrary CAD solids, arbitrary-profile/curved-path sweeps, concave/holed extrusions, constraint solver, NURBS, SDF, Boolean operations, physically based material simulation in core, organic modeling, semantic identification of objects. A mathematically valid mesh does not prove it represents an intended real-world object. `validateMesh` is a basic validator, not a manifold/watertightness proof.
 
@@ -200,11 +201,62 @@ root using `python3 -m http.server 8000`, then open
 `http://localhost:8000/examples/tube-preview.html`. The browser test
 `npm run test:browser` also records initial/orbited images of the tube.
 
+## Triangle-pair geometric diagnostics · 0.6.0
+
+`analyzeMeshSelfIntersections(mesh, options?)` supplements the combinatorial
+topology checker with **coordinate-space geometry tests**. It uses an
+axis-aligned bounding-box broad phase, triangle-plane edge intersections,
+and planar polygon clipping. The report classifies pairs as:
+
+- `crossing`: noncoplanar intersection detected along a line segment.
+- `coplanar-overlap`: overlapping coplanar triangles with positive area
+  greater than the conservative tolerance-based area threshold.
+- `point-contact`: isolated noncoplanar point contact.
+- `uncertain`: edge-on-plane configuration where a reliable classification
+  was not established.
+
+```js
+import { createBox, analyzeMeshSelfIntersections } from '@pfxamd/geometry-core';
+
+const report = analyzeMeshSelfIntersections(createBox(1, 2, 3));
+console.log(report.totalFindings, report.excludedAdjacentPairs);
+```
+
+The options are `tolerance` (default `1e-9`, absolute coordinate units),
+`maxTriangles` (default and hard maximum 1500), and `maxFindings` (default
+64, maximum 1000; the counts remain complete when stored findings are
+truncated). Meshes exceeding the budget fail explicitly, not by silently
+returning a partial "all clear." `assertNoDetectedSelfIntersections` throws
+when a finding is returned.
+
+**Critical limits:**
+
+- Triangle pairs that share a coordinate-identified vertex are excluded
+  when noncoplanar, to avoid false findings on legitimate mesh adjacency.
+  True intersections within such pairs may therefore be missed. The
+  report exposes `excludedAdjacentPairs`.
+- Coplanar contacts with **zero positive overlap area** are not reported.
+- Tiny overlap area can fall beneath the configurable numerical tolerance.
+- This is a bounded floating-point diagnostic, **not** a robust exact-predicate
+  geometry kernel. It cannot guarantee absence of all self-intersections,
+  distinguish overlapping interiors everywhere, or detect enclosed shells
+  that do not intersect at their boundaries.
+- `noDetectedIntersections` indicates zero reported findings under these
+  limitations. It is **not a mathematical proof of intersection-free solid
+  geometry**; topology and geometric diagnostics must be treated separately.
+
+**Visual evidence:** serve the built repo root after `npm install && npm run
+build` and open `http://localhost:8000/examples/intersections-preview.html`.
+It shows two overlapping measured solids, a separate reference solid and
+highlighted triangle-pair findings. `npm run test:browser` verifies actual
+WebGL rendering, report consistency and mouse-orbit changes.
+
 ## Next milestone
 
-Extend mesh topology into **geometric** collision/intersection checks, add
-stronger numerical conditioning and tested parametric sweep profiles. Keep
-the math engine independent of rendering libraries and AI inference.
+Improve adjacent-face intersection analysis and numerical predicates, then
+introduce a spatial acceleration structure for meshes larger than the current
+1500-triangle diagnostic limit. Preserve deterministic, renderer-independent
+math and avoid any unsupported claims of guaranteed solid validity.
 
 ## License
 

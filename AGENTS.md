@@ -36,3 +36,12 @@ This repository is a deterministic geometry engine, **not** an AI generator and 
 - The supported 3D sweep is a circular tube around an OPEN polyline of waypoints with bounded turns, radius and subdivisions. It is not an arbitrary cross-section extrusion or generic curved-path sweep.
 - Each topological property needs negative regression fixtures: boundary edges, orientation reversal, oversubscribed edges, pinched vertex fans and tolerance-dependent welding.
 - Preserve deterministic geometry generation and explicitly reject unsupported segment degeneracy and sharp bends.
+
+## Geometric intersection diagnostics
+
+- Never equate `noDetectedIntersections` with a proof of a mesh being free from self-intersection.
+- The triangle-pair analyzer is bounded by a 1500-triangle computational budget and absolute tolerance. It must reject larger inputs rather than returning incomplete results as success.
+- Coplanar overlap means **positive-area overlap** above the scale-dependent threshold; ordinary shared edges and vertices are not faults.
+- Report numerical ambiguity conservatively. Noncoplanar pairs sharing a coincident vertex are excluded and counted, not silently certified.
+- Regression fixtures must include: crossing triangles, coplanar overlap, boundary-only contact, isolated contact, edge-on-plane ambiguity, clean revolved caps, separated objects, and interpenetrating box shells.
+- Keep broad-phase and exact-predicate improvements separate from Three.js rendering adapters.

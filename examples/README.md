@@ -41,3 +41,12 @@ serving the repository root. The example renders a tube whose geometry follows
 a measured three-dimensional polyline. Topology counts are obtained directly
 from the CPU core and orbit interaction is verified in the browser regression
 suite. This does not prove geometric intersection-free output.
+
+## Triangle intersections (0.6.0)
+
+Open `http://localhost:8000/examples/intersections-preview.html` after
+building and serving the repository root. Overlapping measured boxes are
+shown beside an isolated reference solid, with diagnostic triangle edges
+highlighted. The scene does **not** portray a calculated intersection
+volume or assert universal collision-free geometry. Browser tests record
+the initial and rotated scenes.
