@@ -1,6 +1,6 @@
 # PFx Geometry Core
 
-**Status:** alpha `0.8.0` — tested geometry/math foundations, not a general-purpose CAD engine.
+**Status:** alpha `0.9.0` — tested geometry/math foundations, not a general-purpose CAD engine.
 
 A small, deterministic, renderer-independent 3D geometry foundation for building measured and verifiable objects. No AI models, cloud requirements, random geometry generation, or UI framework dependencies.
 
@@ -24,6 +24,8 @@ A small, deterministic, renderer-independent 3D geometry foundation for building
 - Bounded triangle-pair geometric intersection diagnostics, including crossing, coplanar area overlap, isolated point contact and indeterminate edge-plane cases.
 - A deterministic median-split 3D bounding-volume hierarchy (BVH) for conservative triangle candidate enumeration, cross-checked against sweep-and-prune.
 - Adaptive-precision orientation predicates for 2D and 3D, integrated into triangle plane-side checks and projected inside/clip checks.
+- An opt-in, conservative estimator for noncoplanar transverse triangle intersection segments with explicit indeterminate outcomes.
+- Seeded adversarial tests and reproducible benchmark reports comparing BVH and sweep-and-prune.
 
 **Not implemented yet:** arbitrary CAD solids, arbitrary-profile/curved-path sweeps, concave/holed extrusions, constraint solver, NURBS, SDF, Boolean operations, physically based material simulation in core, organic modeling, semantic identification of objects. A mathematically valid mesh does not prove it represents an intended real-world object. `validateMesh` is a basic validator, not a manifold/watertightness proof.
 
@@ -330,6 +332,59 @@ Add independent randomized/adversarial geometric test fixtures and measure
 the performance/precision tradeoff. Only then extend to more exact
 triangle intersection classification and broad-phase scaling. Keep the
 geometry engine separate from rendering and AI.
+
+## Conservative intersection segment estimator · 0.9.0
+
+`estimateTransverseTriangleIntersection(first, second, tolerance?)`
+estimates **3D endpoints of one transverse triangle-pair intersection**
+when both triangles strictly cross each other's plane and their normals
+have a well-conditioned cross product. Both arguments are three ordered
+`Vec3` vertices; `tolerance` is a positive *absolute* length in mesh units
+(default `1e-9`). This function is independent from the mesh-wide collision
+diagnostic and renderer.
+
+```js
+import { vec3, estimateTransverseTriangleIntersection } from '@pfxamd/geometry-core';
+const a=[vec3(0,0,0),vec3(2,0,0),vec3(0,2,0)];
+const b=[vec3(.4,.5,-1),vec3(1.6,.5,-1),vec3(1,.5,1)];
+const result=estimateTransverseTriangleIntersection(a,b);
+if(result.status==='crossing') {
+  console.log(result.start,result.end,result.approximate);
+}
+```
+
+The result is one of `{status:'none'}`, `{status:'crossing',
+start,end,approximate:true}`, or `{status:'indeterminate',reason}`.
+Expected boundary tangencies, near-parallel/coplanar triangles, small
+segments and numerically unstable results **do not get invented endpoints**.
+The estimator evaluates plane sidedness with adaptive orientation predicates,
+clips triangle edges to planes with floating-point arithmetic, intersects the
+two intervals along their common line, and checks the endpoints against both
+triangles and their planes before returning them. This does **not** provide an
+exact-predicate intersection segment or prove all other geometry is valid.
+
+### Adversarial tests and performance evidence
+
+`npm test` includes deterministic seeded fixtures (64 isolated crossings,
+64 non-collisions, 64 translated segment checks, orientation permutation
+checks), as well as known analytic endpoint tests, degenerate inputs and
+translation invariance.
+
+`npm run benchmark` prints structured JSON from actual `performance.now()`
+measurements for separated triangles (256, 1024, 4096, 8192) and isolated
+crossing pairs (128, 512, 1024). Each mode has one warmup and three measured
+runs; the middle runtime is reported. The script checks that both broad-phase
+algorithms produce identical candidate/collision counts; a mismatch fails.
+CI stores the benchmark JSON as a downloadable artifact. These are
+**observations**, not universal speed guarantees: environment, JIT warmup,
+mesh density and runtime fluctuations strongly affect measurements.
+Reported heap usage is JS heap at the end, *not* process peak memory.
+
+Reference research on robust overlapping tests and precise arithmetic:
+Philippe Guigue & Olivier Devillers (2003), *Fast and Robust
+Triangle-Triangle Overlap Test Using Orientation Predicates*.
+The available implementation is intentionally **more limited** than a general
+exact geometric kernel.
 
 ## License
 

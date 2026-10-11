@@ -1,6 +1,6 @@
 {
   "name": "@pfxamd/geometry-core",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "A deterministic, renderer-independent geometry and perspective foundation.",
   "type": "module",
   "private": false,
@@ -29,7 +29,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run build && node --test tests/*.test.mjs",
     "test:browser": "npm run build && node --test tests/browser/*.test.mjs",
-    "check": "npm run typecheck && npm test"
+    "check": "npm run typecheck && npm test",
+    "benchmark": "npm run build && node benchmarks/intersections.mjs"
   },
   "peerDependencies": {
     "three": "^0.186.1"

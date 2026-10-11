@@ -62,3 +62,16 @@ This repository is a deterministic geometry engine, **not** an AI generator and 
 - Distinguish robust orientation tests from full exact intersection algorithms; interpolation, clipping and tolerances remain floating point.
 - Preserve triangle fixtures with cancellation where naive determinants are zero but adaptive signs are not; do not weaken numerical regression tests.
 - Respect the dependency's Unlicense and document it in README.
+
+## Intersection segment and adversarial verification (0.9.0)
+
+- The segment estimator handles strictly transverse, noncoplanar triangle
+  pairs only. Tangential, shared-boundary and numerically unstable cases
+  must report indeterminate, never invented precise endpoints.
+- All estimated endpoints are marked approximate and verified on both
+  triangle planes and projected interior with an explicit tolerance.
+- Seeded randomized tests are reproducible **test inputs only**, not
+  random geometry production features. Keep known analytic intersection
+  fixtures and symmetry/translation checks.
+- Microbenchmarks measure actual runtime for specified input distributions;
+  they do not certify generalized BVH speedups or peak memory usage.

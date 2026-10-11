@@ -16,6 +16,10 @@ jobs:
       - run: node examples/first-scene.mjs
       - name: Browser WebGL smoke test and screenshots
         run: npm run test:browser
+      - name: Reproducible geometry performance samples
+        run: |
+          mkdir -p artifacts
+          npm run benchmark > artifacts/intersection-benchmark.json
       - name: Upload browser evidence
         if: always()
         uses: actions/upload-artifact@v4
