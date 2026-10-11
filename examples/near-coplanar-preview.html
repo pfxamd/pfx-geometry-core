@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PFx Geometry Core — near-coplanar proximity verification</title>
+<style>
+:root{color-scheme:dark;font:14px/1.5 system-ui,-apple-system,sans-serif}
+*{box-sizing:border-box}body{margin:0;background:#0f151c;color:#e6eef1;min-height:100vh;display:grid;place-items:center}
+main{width:min(1200px,96vw);padding:25px 0}
+header,footer{display:flex;justify-content:space-between;gap:18px;align-items:baseline}
+h1{font-weight:560;font-size:17px;margin:0 0 16px}
+small,footer{color:#a6bbc6;font-size:12px}
+.stage{position:relative;width:100%;height:min(70vh,650px);min-height:400px;overflow:hidden;border:1px solid #34434e;border-radius:11px;background:#14202b}
+.stage canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+.stage canvas:active{cursor:grabbing}
+.hud{pointer-events:none;position:absolute;top:22px;left:25px;display:grid;gap:5px}
+.hud strong{font-size:20px;font-weight:560}
+.hud span,.status{color:#afc5d0;font:12px ui-monospace,monospace}
+.status{pointer-events:none;position:absolute;bottom:20px;left:25px}
+footer{padding:12px 0}
+</style>
+<script type="importmap">
+{"imports":{"three":"../node_modules/three/build/three.module.js","three/addons/":"../node_modules/three/examples/jsm/","robust-predicates":"../node_modules/robust-predicates/index.js"}}
+</script>
+</head>
+<body>
+<main>
+<header><h1>PFx Geometry Core / near-coplanar separation diagnostic</h1><small>alpha 0.11.0 · WebGL 2</small></header>
+<section class="stage" id="stage">
+<div class="hud"><strong>Near area · Near edge · Outside domain</strong><span>Projection comparison only · no 3D collision conclusion</span></div>
+<div class="status" id="status">Evaluating...</div>
+</section>
+<footer><span>Display Z offsets exaggerated to reveal separation; source geometry unchanged</span><span>Drag to orbit · Scroll to zoom</span></footer>
+</main>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {vec3, perspectiveCamera,inspectNearCoplanarTriangles3} from '../dist/index.js';
+import {toThreeBufferGeometry,toThreePerspectiveCamera} from '../adapters/three/index.mjs';
+const stage=document.getElementById('stage'),status=document.getElementById('status');
+const v=vec3;
+try{
+  const a=[v(0,0,0),v(2,0,0),v(0,2,0)];
+  const lift=(tri,z)=>tri.map(p=>v(p.x,p.y,p.z+z));
+  const specimens=[
+    {label:'NEAR AREA',expected:'near-coplanar',expectedFootprint:'area-overlap',offset:-4,
+      displayZ:.30,b:lift([v(.25,.25,0),v(1.25,.25,0),v(.25,1.25,0)],1e-7)},
+    {label:'NEAR EDGE',expected:'near-coplanar',expectedFootprint:'edge-contact',offset:0,
+      displayZ:.30,b:lift([v(.5,0,0),v(1.5,0,0),v(1,-1,0)],1e-7)},
+    {label:'TOO FAR',expected:'outside-domain',offset:4,displayZ:.52,
+      b:lift([v(.25,.25,0),v(1.25,.25,0),v(.25,1.25,0)],2e-4)},
+  ];
+  const diagnostics=specimens.map(s=>inspectNearCoplanarTriangles3(a,s.b));
+  for(let i=0;i<diagnostics.length;i++){
+    const d=diagnostics[i],s=specimens[i];
+    if(d.status!==s.expected)throw Error('Unexpected diagnostic status');
+    if(s.expectedFootprint && d.projectedContact!==s.expectedFootprint)
+      throw Error('Unexpected projected footprint classification');
+    if(d.exactlyCoplanar)throw Error('Separate planes classified as coplanar');
+  }
+  const scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x14202b);
+  const geometryResources=[],materialResources=[];
+  function triangle(points,offset,color,depth){
+    const positions=points.flatMap(p=>[p.x+offset,p.y,p.z+depth]);
+    const geom=new THREE.BufferGeometry();
+    geom.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+    geom.setIndex([0,1,2]);
+    geom.computeVertexNormals();
+    const mat=new THREE.MeshStandardMaterial({color,transparent:true,opacity:.73,
+      side:THREE.DoubleSide,depthWrite:false,roughness:.45});
+    const obj=new THREE.Mesh(geom,mat);
+    scene.add(obj);geometryResources.push(geom);materialResources.push(mat);
+  }
+  for(const specimen of specimens){
+    triangle(a,specimen.offset,0x82c5d6,0);
+    triangle(specimen.b,specimen.offset,0xe4ac85,specimen.displayZ);
+  }
+  scene.add(new THREE.HemisphereLight(0xdfebff,0x667b88,3.1));
+  const key=new THREE.DirectionalLight(0xffffff,3);
+  key.position.set(-4,5,8);scene.add(key);
+  const cam=toThreePerspectiveCamera(perspectiveCamera({
+    eye:v(2,3.7,11.5),target:v(1,0,.0),
+    fovYRadians:Math.PI/4,aspect:stage.clientWidth/stage.clientHeight,
+    near:.1,far:100,
+  }));
+  const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+  renderer.outputColorSpace=THREE.SRGBColorSpace;
+  renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+  stage.insertBefore(renderer.domElement,stage.firstChild);
+  const orbit=new OrbitControls(cam,renderer.domElement);
+  orbit.target.set(1,0,0);orbit.enableDamping=false;orbit.minDistance=5;orbit.maxDistance=26;
+  const render=()=>{
+    renderer.render(scene,cam);
+    status.textContent='NEAR: projected area  ·  NEAR: projected edge  ·  FAR: outside threshold';
+    window.__pfxNearCoplanarStats={
+      labels:specimens.map(s=>s.label),
+      statuses:diagnostics.map(d=>d.status),
+      projected:diagnostics.map(d=>d.projectedContact??null),
+      gaps:diagnostics.map(d=>d.maxPlaneDistance),
+      exactlyCoplanar:diagnostics.some(d=>d.exactlyCoplanar),
+      triangles:6,
+    };
+    document.documentElement.dataset.ready='true';
+  };
+  orbit.addEventListener('change',render);
+  const resize=()=>{
+    const w=Math.max(1,stage.clientWidth),h=Math.max(1,stage.clientHeight);
+    renderer.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();render();
+  };
+  new ResizeObserver(resize).observe(stage);resize();
+  renderer.domElement.addEventListener('webglcontextlost',()=>{
+    document.documentElement.dataset.ready='error';status.textContent='WebGL context lost';
+  });
+  window.addEventListener('pagehide',()=>{
+    orbit.dispose();renderer.dispose();
+    geometryResources.forEach(x=>x.dispose());
+    materialResources.forEach(x=>x.dispose());
+  },{once:true});
+}catch(error){
+  document.documentElement.dataset.ready='error';
+  window.__pfxNearCoplanarError=error.message;
+  status.textContent=`Diagnostic failed: ${error.message}`;
+  console.error(error);
+}
+</script>
+</body>
+</html>

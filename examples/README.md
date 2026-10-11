@@ -78,3 +78,15 @@ contact. The small visual Z separation in orange overlay triangles is a
 **renderer-only anti-z-fighting offset**; it is NOT part of the geometry
 tested by `classifyCoplanarTriangleContact3`. Browser tests verify the
 three classification results, WebGL rendering and orbit response.
+
+## Near-coplanar separation diagnostic (0.11.0)
+
+Open `http://localhost:8000/examples/near-coplanar-preview.html` after
+building and serving the repository root. The scene tests (1) almost-parallel
+triangles with projected area overlap, (2) projected edge contact, and
+(3) a plane separation above the supported tolerance. The orange triangles
+are **visually displaced in Z far more than their actual modeled distances**,
+only so the gaps are visible on screen. The measured model coordinates are
+never modified before diagnosis. No physical collision is claimed.
+The browser regression checks classifications, actual model-unit distances,
+WebGL rendering and orbit response.
