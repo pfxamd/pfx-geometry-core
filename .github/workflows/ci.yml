@@ -19,11 +19,11 @@ jobs:
       - name: Reproducible geometry performance samples
         run: |
           mkdir -p artifacts
-          npm run benchmark > artifacts/intersection-benchmark.json
+          node benchmarks/intersections.mjs > artifacts/intersection-benchmark.json
       - name: Upload browser evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: three-adapter-screenshots
-          path: artifacts/*.png
+          name: geometry-core-verification
+          path: artifacts/
           if-no-files-found: ignore
