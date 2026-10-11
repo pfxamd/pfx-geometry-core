@@ -1,6 +1,6 @@
 # PFx Geometry Core
 
-**Status:** alpha `0.7.0` — tested geometry/math foundations, not a general-purpose CAD engine.
+**Status:** alpha `0.8.0` — tested geometry/math foundations, not a general-purpose CAD engine.
 
 A small, deterministic, renderer-independent 3D geometry foundation for building measured and verifiable objects. No AI models, cloud requirements, random geometry generation, or UI framework dependencies.
 
@@ -23,6 +23,7 @@ A small, deterministic, renderer-independent 3D geometry foundation for building
 - Controlled circular-profile sweeps following open 3D polylines (bounded turning angles, explicit radius and planar end caps).
 - Bounded triangle-pair geometric intersection diagnostics, including crossing, coplanar area overlap, isolated point contact and indeterminate edge-plane cases.
 - A deterministic median-split 3D bounding-volume hierarchy (BVH) for conservative triangle candidate enumeration, cross-checked against sweep-and-prune.
+- Adaptive-precision orientation predicates for 2D and 3D, integrated into triangle plane-side checks and projected inside/clip checks.
 
 **Not implemented yet:** arbitrary CAD solids, arbitrary-profile/curved-path sweeps, concave/holed extrusions, constraint solver, NURBS, SDF, Boolean operations, physically based material simulation in core, organic modeling, semantic identification of objects. A mathematically valid mesh does not prove it represents an intended real-world object. `validateMesh` is a basic validator, not a manifold/watertightness proof.
 
@@ -286,12 +287,49 @@ ambiguities can hide intersections. For exact geometric predicates, see
 Shewchuk's adaptive arithmetic research and publicly available robust
 orientation implementations; that upgrade has **not** been implemented yet.
 
+## Adaptive orientation predicates · 0.8.0
+
+The core now has `orientation2D(a,b,c)` and `orientation3D(a,b,c,d)`
+returning `-1`, `0` or `1`. Both follow the core's +Y-up,
+right-handed convention. Their signs are computed using the
+`robust-predicates@3.0.3` open-source dependency, a JavaScript port
+of Shewchuk's adaptive precision predicates. Its license is **Unlicense**.
+The dependency is small, has no runtime dependencies, and contains
+**no AI models**.
+
+```js
+import {orientation2D,orientation3D,vec3} from '@pfxamd/geometry-core';
+
+orientation2D([0,0],[1,0],[0,1]); // +1: counterclockwise in +Y-up axes
+orientation3D(vec3(0,0,0),vec3(1,0,0),
+  vec3(0,1,0),vec3(0,0,1)); // +1: above the plane
+```
+
+The intersection diagnostic now evaluates triangle-plane sides through
+adaptive `orient3d`, normalized by a triangle's double-area to preserve
+the established distance tolerance in model coordinate units. It uses
+adaptive `orient2d` for projected point-in-triangle sides and planar
+clipping half-planes. Tests include **catastrophic cancellation** fixtures,
+where naive floating-point determinants evaluate to zero despite a
+nonzero exact sign for the represented IEEE-754 inputs, and a controlled
+near-coplanar intersection.
+
+**Crucial limitations:** this is **not** a fully exact triangle-intersection
+algorithm. Line-plane intersection coordinates, polygon clipping
+intersections, projected area and other arithmetic still use floating point.
+Inputs that were already rounded before entering the core cannot be
+recovered by robust predicates. Very large or extremely small scales,
+coplanar-tolerance decisions, shared-vertex exclusions and self-intersecting
+solids remain subject to explicit limits documented in 0.6.0 and 0.7.0.
+The old conservative report semantics are preserved. No absolute guarantee
+of a collision-free mesh is implied.
+
 ## Next milestone
 
-Introduce adaptive robust orientation predicates and stronger geometric
-checks for adjacent/near-coplanar triangles. Scale the BVH with profiling
-and bounded-memory performance tests. Preserve renderer independence and
-do not claim intersection-free geometry from a negative floating-point scan.
+Add independent randomized/adversarial geometric test fixtures and measure
+the performance/precision tradeoff. Only then extend to more exact
+triangle intersection classification and broad-phase scaling. Keep the
+geometry engine separate from rendering and AI.
 
 ## License
 

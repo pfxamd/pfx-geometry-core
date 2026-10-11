@@ -53,3 +53,12 @@ This repository is a deterministic geometry engine, **not** an AI generator and 
 - Retained findings must be lexicographically stable regardless of BVH traversal order.
 - `skippedSharedVertexAmbiguities` explicitly marks pairs the floating-point checker did not establish as collision-free.
 - The accelerated broad phase improves candidate selection, not predicate robustness or the certainty of the result.
+
+## Orientation accuracy (0.8.0)
+
+- Prefer adaptive `robust-predicates` orientations over handwritten near-zero 2D/3D determinants for sidedness.
+- Adapt predicate signs to +Y-up/right-handed core conventions, never allow the library's Y-down convention to leak into public APIs.
+- Exact orientation sign is exact only for IEEE-754 input coordinates, not physical measurements or earlier rounded computations.
+- Distinguish robust orientation tests from full exact intersection algorithms; interpolation, clipping and tolerances remain floating point.
+- Preserve triangle fixtures with cancellation where naive determinants are zero but adaptive signs are not; do not weaken numerical regression tests.
+- Respect the dependency's Unlicense and document it in README.
