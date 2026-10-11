@@ -34,3 +34,10 @@ export {
   extrudeConvexPolygon,
   type Point2,
 } from './extrude.js';
+export {
+  analyzeMeshTopology, assertClosedOriented2Manifold,
+  type TopologyOptions, type TopologyReport,
+} from './topology.js';
+export {
+  sweepCircularTube, type TubeSweepOptions,
+} from './sweep.js';
