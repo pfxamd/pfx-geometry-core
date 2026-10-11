@@ -109,19 +109,19 @@ export function estimateTransverseTriangleIntersection(
   const sa=planeCut(a,da,epsilon),sb=planeCut(b,db,epsilon);
   if(!sa||!sb)return Object.freeze({status:'indeterminate',reason:'unstable-plane-cut'});
   let axis=0;
-  if(Math.abs(direction[1])>Math.abs(direction[axis]))axis=1;
-  if(Math.abs(direction[2])>Math.abs(direction[axis]))axis=2;
-  const amin=Math.min(sa[0][axis],sa[1][axis]),amax=Math.max(sa[0][axis],sa[1][axis]);
-  const bmin=Math.min(sb[0][axis],sb[1][axis]),bmax=Math.max(sb[0][axis],sb[1][axis]);
+  if(Math.abs(direction[1])>Math.abs(direction[axis]!!))axis=1;
+  if(Math.abs(direction[2])>Math.abs(direction[axis]!!))axis=2;
+  const amin=Math.min(sa[0][axis]!,sa[1][axis]!),amax=Math.max(sa[0][axis]!,sa[1][axis]!);
+  const bmin=Math.min(sb[0][axis]!,sb[1][axis]!),bmax=Math.max(sb[0][axis]!,sb[1][axis]!);
   const lo=Math.max(amin,bmin),hi=Math.min(amax,bmax);
-  const spanTolerance=epsilon*Math.abs(direction[axis])/strength;
+  const spanTolerance=epsilon*Math.abs(direction[axis]!!)/strength;
   if(hi<lo-spanTolerance)return Object.freeze({status:'none'});
   if(hi-lo<=spanTolerance)
     return Object.freeze({status:'indeterminate',reason:'point-contact-or-subresolution'});
   const interpolate=(segment:readonly [V,V],x:number):V|null=>{
-    const [p,q]=segment,denom=q[axis]-p[axis];
+    const [p,q]=segment,denom=q[axis]!-p[axis]!;
     if(!Number.isFinite(denom)||Math.abs(denom)<=spanTolerance)return null;
-    const t=(x-p[axis])/denom;
+    const t=(x-p[axis]!)/denom;
     if(t< -1e-9||t>1+1e-9)return null;
     const result:V=[p[0]+t*(q[0]-p[0]),p[1]+t*(q[1]-p[1]),
       p[2]+t*(q[2]-p[2])];
@@ -146,7 +146,7 @@ export function estimateTransverseTriangleIntersection(
 }
 function axisOfNormal(n:V):number{
   let axis=0;
-  if(Math.abs(n[1])>Math.abs(n[axis]))axis=1;
-  if(Math.abs(n[2])>Math.abs(n[axis]))axis=2;
+  if(Math.abs(n[1])>Math.abs(n[axis]!))axis=1;
+  if(Math.abs(n[2])>Math.abs(n[axis]!))axis=2;
   return axis;
 }
