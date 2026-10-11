@@ -1,4 +1,5 @@
-import { finite, GeometryError, positive } from './errors.js';
+import { GeometryError, positive } from './errors.js';
+import { orient2d, orient3d } from 'robust-predicates';
 import { type TriangleMesh, validateMesh } from './mesh.js';
 import { scanTriangleAABBPairs, type BroadPhaseStrategy } from './broadphase.js';
 
@@ -8,6 +9,7 @@ type Triangle = readonly [V3, V3, V3];
 type TriangleData = {
   readonly points: Triangle;
   readonly normal: V3;
+  readonly normalMagnitude: number;
   readonly min: V3;
   readonly max: V3;
 };
@@ -76,6 +78,29 @@ const distance = (a: V3, b: V3): number =>
   Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 const cross2 = (a: V2, b: V2): number => a[0] * b[1] - a[1] * b[0];
 const subtract2 = (a: V2, b: V2): V2 => [a[0] - b[0], a[1] - b[1]];
+const robustSide2 = (a: V2, b: V2, p: V2): number =>
+  orient2d(a[0], a[1], b[0], b[1], p[0], p[1]);
+
+/**
+ * Plane sidedness uses Shewchuk's adaptive orientation determinant,
+ * divided by the triangle's double-area to express distance in mesh units.
+ * The tolerance below is geometric, NOT a claim of exact coplanarity.
+ */
+function robustPlaneDistances(source: Triangle, target: TriangleData): number[] {
+  const [a,b,c]=target.points;
+  return source.map(p=>{
+    const volume6=orient3d(
+      a[0],a[1],a[2],b[0],b[1],b[2],c[0],c[1],c[2],
+      p[0],p[1],p[2],
+    );
+    const value=volume6 / target.normalMagnitude;
+    if (!Number.isFinite(value)) {
+      throw new GeometryError('INVALID_NUMBER',
+        'Robust orientation distance outside supported numeric range');
+    }
+    return value;
+  });
+}
 
 function triangleData(mesh: TriangleMesh, index: number): TriangleData {
   const coordinates = [0, 1, 2].map(k => {
@@ -99,7 +124,7 @@ function triangleData(mesh: TriangleMesh, index: number): TriangleData {
     Math.max(...coordinates.map(p => p[1])),
     Math.max(...coordinates.map(p => p[2])),
   ];
-  return { points: coordinates, normal, min, max };
+  return { points: coordinates, normal, normalMagnitude: length, min, max };
 }
 
 function aabbOverlap(a: TriangleData, b: TriangleData, epsilon: number): boolean {
@@ -149,11 +174,11 @@ function coplanarOverlapArea(a: Triangle, b: Triangle, normal: V3): number {
   const axis = dominantAxis(normal);
   let subject = a.map(p => projected(p, axis));
   const clip = b.map(p => projected(p, axis));
-  const direction = signedArea(clip) >= 0 ? 1 : -1;
+  const direction = robustSide2(clip[0]!, clip[1]!, clip[2]!) >= 0 ? 1 : -1;
   for (let edge = 0; edge < 3; edge++) {
     const v = clip[edge]!, w = clip[(edge + 1) % 3]!;
     const side = (p: V2): number =>
-      direction * cross2(subtract2(w, v), subtract2(p, v));
+      direction * robustSide2(v, w, p);
     const output: V2[] = [];
     for (let i = 0; i < subject.length; i++) {
       const current = subject[i]!, previous = subject[(i + subject.length - 1) % subject.length]!;
@@ -181,11 +206,11 @@ function insideTriangle(p: V3, triangle: Triangle, normal: V3, epsilon: number):
   const axis = dominantAxis(normal);
   const p2 = projected(p, axis);
   const vertices = triangle.map(v => projected(v, axis));
-  const direction = signedArea(vertices) >= 0 ? 1 : -1;
+  const direction = robustSide2(vertices[0]!, vertices[1]!, vertices[2]!) >= 0 ? 1 : -1;
   for (let i = 0; i < 3; i++) {
     const a = vertices[i]!, b = vertices[(i + 1) % 3]!;
     const span = subtract2(b, a);
-    const side = direction * cross2(span, subtract2(p2, a));
+    const side = direction * robustSide2(a, b, p2);
     if (side < -epsilon * Math.hypot(...span)) return false;
   }
   return true;
@@ -194,11 +219,11 @@ function insideTriangle(p: V3, triangle: Triangle, normal: V3, epsilon: number):
 function strictlyInsideTriangle(p:V3,triangle:Triangle,normal:V3,epsilon:number):boolean{
   const axis=dominantAxis(normal);
   const q=projected(p,axis),vertices=triangle.map(v=>projected(v,axis));
-  const direction=signedArea(vertices)>=0?1:-1;
+  const direction=robustSide2(vertices[0]!,vertices[1]!,vertices[2]!)>=0?1:-1;
   for(let i=0;i<3;i++){
     const a=vertices[i]!,b=vertices[(i+1)%3]!;
     const span=subtract2(b,a);
-    const side=direction*cross2(span,subtract2(q,a));
+    const side=direction*robustSide2(a,b,q);
     if(side<=epsilon*Math.hypot(...span))return false;
   }
   return true;
@@ -206,8 +231,7 @@ function strictlyInsideTriangle(p:V3,triangle:Triangle,normal:V3,epsilon:number)
 
 function narrowPhase(a: TriangleData, b: TriangleData, epsilon: number,
   sharedVertices=0): IntersectionKind | null {
-  const planeDistances = (source: Triangle, target: TriangleData): number[] =>
-    source.map(p => dot(target.normal, subtract(p, target.points[0])));
+  const planeDistances = robustPlaneDistances;
   const da = planeDistances(a.points, b);
   const db = planeDistances(b.points, a);
   const outside = (values: number[]): boolean =>
@@ -286,8 +310,9 @@ function narrowPhase(a: TriangleData, b: TriangleData, epsilon: number,
  * tested for additional crossing; shared point-only contact is ignored.
  * Coplanar pairs are checked for positive-area overlap.
  *
- * Not a robust exact-predicate kernel, proof of collision freedom, containment
- * test, manifold test, or comprehensive self-intersection validator.
+ * Uses robust adaptive orientation signs, but still employs floating-point
+ * interpolation, projection and tolerance clipping. Not an exact intersection
+ * kernel, proof of collision freedom, containment or manifold validity.
  */
 export function analyzeMeshSelfIntersections(
   mesh: TriangleMesh,
@@ -354,8 +379,8 @@ export function analyzeMeshSelfIntersections(
         `Broad-phase candidate count exceeded ${maxCandidatePairs}; no partial result returned`);
     }
     const first=triangles[firstIndex]!,second=triangles[secondIndex]!;
-    const da=second.points.map(p=>dot(first.normal,subtract(p,first.points[0])));
-    const db=first.points.map(p=>dot(second.normal,subtract(p,second.points[0])));
+    const da=robustPlaneDistances(second.points,first);
+    const db=robustPlaneDistances(first.points,second);
     const coplanar=da.every(d=>Math.abs(d)<=epsilon)&&
                    db.every(d=>Math.abs(d)<=epsilon);
     const shared=sharedCoordinateCount(first.points,second.points,epsilon);

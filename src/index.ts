@@ -48,3 +48,4 @@ export {
   type TriangleIntersectionFinding, type TriangleIntersectionReport,
 } from './intersections.js';
 export { type BroadPhaseStrategy } from './broadphase.js';
+export { orientation2D, orientation3D, type OrientationSign, type Point2D } from './predicates.js';
