@@ -28,8 +28,8 @@
   const grid=Array.from({length:4},(_,j)=>Array.from({length:4},(_,i)=>
     V((i/3-.5)*3.2,(j/3-.5)*2.6,(i===1||i===2)&&(j===1||j===2)?1.55:0)));
   const mesh=createBezierPatchMesh(grid,{uSegments:32,vSegments:24});
-  const cam=perspectiveCamera({eye:V(5,-5,7),target:V(0,0,.27),up:V(0,0,1),
-    fovYRadians:Math.PI/3,aspect:1120/680,near:.1,far:100});
+  const cam=perspectiveCamera({eye:V(3,-3.7,3.8),target:V(0,0,.27),up:V(0,0,1),
+    fovYRadians:Math.PI/4,aspect:1120/680,near:.1,far:100});
   const project=p=>projectPoint(p,cam,{width:1120,height:680});
   const vertices=[];
   for(let i=0;i<mesh.positions.length;i+=3)
