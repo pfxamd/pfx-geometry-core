@@ -20,6 +20,7 @@ jobs:
         run: |
           mkdir -p artifacts
           node benchmarks/intersections.mjs > artifacts/intersection-benchmark.json
+          node benchmarks/irregular.mjs > artifacts/irregular-benchmark.json
       - name: Upload browser evidence
         if: always()
         uses: actions/upload-artifact@v4

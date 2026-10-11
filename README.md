@@ -1,6 +1,6 @@
 # PFx Geometry Core
 
-**Status:** alpha `0.9.0` — tested geometry/math foundations, not a general-purpose CAD engine.
+**Status:** alpha `0.10.0` — tested geometry/math foundations, not a general-purpose CAD engine.
 
 A small, deterministic, renderer-independent 3D geometry foundation for building measured and verifiable objects. No AI models, cloud requirements, random geometry generation, or UI framework dependencies.
 
@@ -26,6 +26,8 @@ A small, deterministic, renderer-independent 3D geometry foundation for building
 - Adaptive-precision orientation predicates for 2D and 3D, integrated into triangle plane-side checks and projected inside/clip checks.
 - An opt-in, conservative estimator for noncoplanar transverse triangle intersection segments with explicit indeterminate outcomes.
 - Seeded adversarial tests and reproducible benchmark reports comparing BVH and sweep-and-prune.
+- Adaptive-orientation classification for exactly coplanar triangle interiors, shared edges and isolated point contacts, with explicit near-coplanar uncertainty.
+- Seeded dense-cluster and elongated irregular triangle performance fixtures, with parity checks across broad-phase implementations.
 
 **Not implemented yet:** arbitrary CAD solids, arbitrary-profile/curved-path sweeps, concave/holed extrusions, constraint solver, NURBS, SDF, Boolean operations, physically based material simulation in core, organic modeling, semantic identification of objects. A mathematically valid mesh does not prove it represents an intended real-world object. `validateMesh` is a basic validator, not a manifold/watertightness proof.
 
@@ -385,6 +387,57 @@ Philippe Guigue & Olivier Devillers (2003), *Fast and Robust
 Triangle-Triangle Overlap Test Using Orientation Predicates*.
 The available implementation is intentionally **more limited** than a general
 exact geometric kernel.
+
+## Coplanar triangle contact classification · 0.10.0
+
+`classifyCoplanarTriangleContact3(first, second, tolerance?)` classifies
+contact between two non-degenerate triangles in the *same mathematical plane*,
+including arbitrarily oriented 3D planes. It uses adaptive orientation signs
+on the supplied floating-point coordinates and convex-polygon separation
+axes; it does not infer 3D solids, and does not use a renderer.
+
+| Result | Meaning |
+| --- | --- |
+| `area-overlap` | triangle interiors overlap with positive area |
+| `edge-contact` | boundary intersection contains a nonzero length edge portion |
+| `point-contact` | contact at an isolated vertex or vertex on an edge |
+| `disjoint` | no contact on the shared plane |
+| `indeterminate` | points do not lie exactly on one plane; includes a `reason` |
+
+```js
+import {vec3, classifyCoplanarTriangleContact3} from '@pfxamd/geometry-core';
+
+const a=[vec3(0,0,0),vec3(2,0,0),vec3(0,2,0)];
+const b=[vec3(.5,0,0),vec3(1.5,0,0),vec3(1,-1,0)];
+const report=classifyCoplanarTriangleContact3(a,b);
+// {kind:'edge-contact',exactlyCoplanar:true}
+```
+
+A near-coplanar pair returns `{kind:'indeterminate',reason:'near-coplanar',
+exactlyCoplanar:false}`; significantly noncoplanar pairs are also
+`indeterminate`, with reason `noncoplanar`. The optional tolerance only
+distinguishes these reasons, it **never converts a nearly coplanar triangle
+into an exactly coplanar one**. Exact here means exact predicate signs for
+the *represented IEEE-754 input coordinates*, not infinite precision of
+upstream physical or decimal measurements. Degenerate triangles fail
+explicitly. Positive-area vs lower-dimensional contact is established by
+orientation signs, not a fragile floating-point area threshold.
+
+This operation is **additional** to `analyzeMeshSelfIntersections`, which
+keeps its old scope and limitations. No result from this function should be
+presented as proof of a whole solid's watertightness or collision freedom.
+
+## Dense and irregular performance verification · 0.10.0
+
+`npm run benchmark:irregular` runs reproducible seeded fixtures at
+192, 384 and 640 triangles for two distributions: dense clusters and an
+elongated stream. Both `bvh` and `sweep` strategies receive identical
+geometries. Tests assert equal candidate-pair counts and collision
+classifications; a mismatch fails the benchmark instead of reporting
+success. The script emits JSON with sample times from one warmup and
+three measured runs per mode; CI stores the JSON file with screenshot
+artifacts. Comparisons are **specific to these fixtures and the CI
+environment**. Final JavaScript heap size is **not** peak memory.
 
 ## License
 

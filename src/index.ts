@@ -50,3 +50,4 @@ export {
 export { type BroadPhaseStrategy } from './broadphase.js';
 export { orientation2D, orientation3D, type OrientationSign, type Point2D } from './predicates.js';
 export { estimateTransverseTriangleIntersection, type Triangle3, type SegmentEstimate } from './segment.js';
+export { classifyCoplanarTriangleContact3, type CoplanarContactKind, type CoplanarContactResult } from './coplanar.js';

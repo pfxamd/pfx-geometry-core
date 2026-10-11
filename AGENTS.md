@@ -75,3 +75,16 @@ This repository is a deterministic geometry engine, **not** an AI generator and 
   fixtures and symmetry/translation checks.
 - Microbenchmarks measure actual runtime for specified input distributions;
   they do not certify generalized BVH speedups or peak memory usage.
+
+## Coplanar contact and dense benchmarks (0.10.0)
+
+- The coplanar classifier uses robust signs for **exact mathematical coplanarity
+  of represented inputs**; tolerance must not silently project or flatten
+  near-coplanar triangles.
+- Keep area-overlap, segment contact, isolated vertex contact and disjoint
+  classifications separate. Cover reversed triangle winding and slanted planes.
+- The mesh-wide diagnostic is deliberately unchanged. Do not imply the
+  coplanar-pair API proves entire solid validity.
+- Dense irregular benchmark fixtures must be deterministic and include parity
+  between BVH and sweep. Never describe a small benchmark sample as a general
+  performance guarantee.
