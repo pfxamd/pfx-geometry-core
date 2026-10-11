@@ -100,3 +100,19 @@ This repository is a deterministic geometry engine, **not** an AI generator and 
 - Preserve established exact-coplanar, mesh-wide intersection and renderer
   behavior. Keep dedicated tests for slanted planes, winding reversal,
   normal reversal, numerical offsets and isolated boundary contacts.
+
+## Mesh-wide near-coplanar scans (0.12.0)
+
+- This module classifies **projected proximity** across bounded AABB
+  candidate pairs. It must never report confirmed 3D intersections from
+  near-coplanar footprint overlap.
+- Reuse the pair-level diagnostic without altering global collision or
+  topology APIs. Preserve exact/near coplanar distinctions.
+- Default retained results ignore normal edge/point adjacency; boundary
+  counts remain independently visible and opt-in reporting is supported.
+- Exceeding triangle or candidate-pair budgets must raise an error; never
+  interpret incomplete computation as no proximity.
+- BVH and sweep report counts and deterministic retained findings must agree
+  across regression fixtures, including when result storage truncates.
+- Keep original vertex arrays and indices unchanged; presentation offsets
+  belong to renderer diagnostics only.

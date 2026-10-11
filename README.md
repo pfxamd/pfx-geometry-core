@@ -1,6 +1,6 @@
 # PFx Geometry Core
 
-**Status:** alpha `0.11.0` — tested geometry/math foundations, not a general-purpose CAD engine.
+**Status:** alpha `0.12.0` — tested geometry/math foundations, not a general-purpose CAD engine.
 
 A small, deterministic, renderer-independent 3D geometry foundation for building measured and verifiable objects. No AI models, cloud requirements, random geometry generation, or UI framework dependencies.
 
@@ -29,6 +29,7 @@ A small, deterministic, renderer-independent 3D geometry foundation for building
 - Adaptive-orientation classification for exactly coplanar triangle interiors, shared edges and isolated point contacts, with explicit near-coplanar uncertainty.
 - Seeded dense-cluster and elongated irregular triangle performance fixtures, with parity checks across broad-phase implementations.
 - Separate near-coplanar triangle diagnostic: measured plane separation, normal-angle difference and projected footprint classification without asserting 3D contact.
+- Bounded mesh-wide BVH/sweep scan for coplanar and near-coplanar projected proximity, with deterministic findings, explicit budgets, and optional boundary-contact reporting.
 
 **Not implemented yet:** arbitrary CAD solids, arbitrary-profile/curved-path sweeps, concave/holed extrusions, constraint solver, NURBS, SDF, Boolean operations, physically based material simulation in core, organic modeling, semantic identification of objects. A mathematically valid mesh does not prove it represents an intended real-world object. `validateMesh` is a basic validator, not a manifold/watertightness proof.
 
@@ -486,6 +487,64 @@ subject to the core's existing numerical validity limits.
 This diagnostic reuses the same validated 2D footprint classifier as
 the coplanar-contact API; the existing API and its result semantics
 remain unchanged. It is **not** an exact geometric collision kernel.
+
+## Mesh-wide near-coplanar survey · 0.12.0
+
+`analyzeMeshNearCoplanarPairs(mesh, options?)` examines **all spatial
+candidate pairs** of an indexed triangle mesh using the same BVH or
+sweep-and-prune broad phase as the collision diagnostic. For candidate
+pairs it delegates to `inspectNearCoplanarTriangles3` without changing
+the original triangle-intersection analyzer or geometry buffers.
+
+```js
+import {createBox,analyzeMeshNearCoplanarPairs} from '@pfxamd/geometry-core';
+const report=analyzeMeshNearCoplanarPairs(createBox(2,1,3),{
+  broadPhase:'bvh',distanceTolerance:1e-6,
+  maxAngleRadians:0.01,includeBoundaryContacts:false,
+});
+console.log(report.coplanarAreaPairs,report.nearCoplanarAreaPairs);
+```
+
+The report separately counts:
+
+- Exactly coplanar projected area-overlapping pairs
+- Near-coplanar projected area-overlapping pairs (which may be
+  **physically disjoint**)
+- Exactly coplanar and near-coplanar boundary-only pairs (edge or point)
+- Candidate pairs rejected by angle/distance limits, or disjoint in
+  the projected footprint
+- Broad-phase candidate count, examined pair count, stored findings and
+  whether storage was truncated
+
+Ordinary edge/point contacts are counted, but **not retained as findings**
+unless `includeBoundaryContacts:true` is selected. The report's
+`reportedPairs` and `noReportedProximity` reflect that selection.
+Neither `noReportedProximity` nor any projected overlap means the
+mesh is collision-free or has a physical collision.
+
+**Limits and reproducibility:** Default `distanceTolerance` is `1e-6`
+(model units), `maxAngleRadians` is `0.01` radians,
+`broadPhase:'bvh'`, `maxTriangles:12000`,
+`maxCandidatePairs:250000`, `maxFindings:64`. Hard maximums are
+20000 triangles, 2000000 AABB candidate pairs and 1000 stored findings.
+The AABB candidate window is conservatively padded by four times the
+distance tolerance; this is a **bounded numerical diagnostic**, not an
+exhaustive exact geometric theorem. A scan that exceeds the explicit
+budgets **throws** and never returns a partial all-clear. Stored findings
+are the smallest triangle-index pairs, regardless of BVH traversal
+order, and are capped independently of the complete reported counts.
+
+This new survey is separate from:
+`analyzeMeshSelfIntersections` (classified crossing/overlap candidate
+diagnostic) and `analyzeMeshTopology` (combinatorial mesh connectivity).
+No one diagnostic proves watertightness, self-intersection freedom or
+manufacturing validity.
+
+The browser fixture at
+`examples/mesh-proximity-preview.html` renders a single mesh containing
+a near-area pair, a near-edge pair and a distant pair. It checks the
+**mesh-wide scan**, not isolated pairs. Visual offsets for the tiny gaps
+are enlarged exclusively in the renderer.
 
 ## License
 
