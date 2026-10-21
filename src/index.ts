@@ -1,3 +1,19 @@
+/**
+ * ┌──────────────────────────────────────────────┐
+ * │                                              │
+ * │  PFxamd                                      │
+ * │  Ahmed                                       │
+ * │                                              │
+ * └──────────────────────────────────────────────┘
+ *
+ * @project     PFx Geometry Core
+ * @author      Ahmed
+ * @brand       PFxamd
+ * @website     https://www.pfxamd.com
+ * @repository  https://github.com/pfxamd/pfx-geometry-core
+ * @license     MIT
+ */
+
 export { EPSILON, GeometryError, type GeometryErrorCode } from './errors.js';
 export {
   vec3, add3, subtract3, scale3, dot3, cross3, length3, distance3, normalize3, angleBetween3,
