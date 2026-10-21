@@ -27,5 +27,6 @@
   "cargoVersions": [],
   "cargoNames": [],
   "npmLocks": [],
-  "cargoLocks": []
+  "cargoLocks": [],
+  "allowGeneratedSourcePaths": true
 }

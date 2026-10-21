@@ -7,3 +7,7 @@
 After successful checks, one existing CI job commits only generated version files on current main. It never force-pushes, never overwrites a newer source update, and uses `[skip ci]` to avoid recursive builds. Its exact bot message is excluded from version counting. Pull requests never write to main.
 
 Pinned consumers keep their pinned core revision and version until explicitly updated. Do not report the latest upstream release as the version embedded in a consumer.
+
+## PFx shared release engine
+
+The `--sync` / `--publish` wrapper delegates version resolution, SVG badges, JSON synchronization and generated changelog to the pinned `@pfxamd/release-core` archive. GitHub CI installs that exact release before resolving. `allowGeneratedSourcePaths: true` keeps the original first-parent count of `package.json` and `.pfx` commits without counting excluded metadata bot commits. Existing deployment/build jobs remain unchanged.
