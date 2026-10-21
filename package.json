@@ -21,7 +21,9 @@
     "dist",
     "adapters",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "version.json",
+    "version-badge.svg"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -31,7 +33,8 @@
     "test:browser": "npm run build && node --test tests/browser/*.test.mjs",
     "check": "npm run typecheck && npm test",
     "benchmark": "npm run build && node benchmarks/intersections.mjs",
-    "benchmark:irregular": "npm run build && node benchmarks/irregular.mjs"
+    "benchmark:irregular": "npm run build && node benchmarks/irregular.mjs",
+    "release:version": "node .pfx/release.mjs --sync"
   },
   "peerDependencies": {
     "three": "^0.186.1"

@@ -1,6 +1,8 @@
 # PFx Geometry Core
 
-**Status:** alpha `0.12.0` — tested geometry/math foundations, not a general-purpose CAD engine.
+[![Core version](./version-badge.svg)](./version.json)
+
+**Status:** alpha (current version above) — tested geometry/math foundations, not a general-purpose CAD engine.
 
 A small, deterministic, renderer-independent 3D geometry foundation for building measured and verifiable objects. No AI models, cloud requirements, random geometry generation, or UI framework dependencies.
 
@@ -549,3 +551,7 @@ are enlarged exclusively in the renderer.
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Automatic source versions
+
+The badge, `version.json`, and package manifests share one Git-derived version. Run `node .pfx/release.mjs --sync` before a local build. Full Git history is required. Rebuilding the same source keeps the same number; metadata-only bot commits do not advance it. See [.pfx/RELEASE.md](.pfx/RELEASE.md).

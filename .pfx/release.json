@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "product": "PFx Geometry Core",
+  "channel": "Alpha",
+  "baseVersion": "0.12.0",
+  "baseline": "01ded2edc584d6cc72182b148db57cc80f13701c",
+  "sourcePaths": [
+    "src",
+    "packages",
+    "crates",
+    "bindings",
+    "tokens",
+    "config",
+    "schema",
+    "scripts",
+    "package.json",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "Cargo.toml",
+    "Cargo.lock",
+    ".pfx",
+    ".github/workflows"
+  ],
+  "jsonVersions": [
+    "package.json"
+  ],
+  "cargoVersions": [],
+  "cargoNames": [],
+  "npmLocks": [],
+  "cargoLocks": []
+}
