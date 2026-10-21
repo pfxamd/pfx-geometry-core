@@ -3,8 +3,8 @@
   "kind": "core",
   "product": "PFx Geometry Core",
   "channel": "Alpha",
-  "version": "0.12.2",
-  "label": "Alpha 0.12.2",
-  "commit": "0b2454f610053d19f94e04339975634fb923699b",
-  "sourceDate": "2026-10-21T18:20:11+01:00"
+  "version": "0.12.3",
+  "label": "Alpha 0.12.3",
+  "commit": "6e39fe604066d956c2527c453b7f10703ae4cd95",
+  "sourceDate": "2026-10-21T21:35:55+01:00"
 }
